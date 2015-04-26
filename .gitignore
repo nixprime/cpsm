@@ -1,0 +1,9 @@
+# Vim
+*[._]s[a-w][a-z]
+
+# C/C++
+*.o
+*.so
+
+# Python
+*.py[cod]
