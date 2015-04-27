@@ -28,9 +28,23 @@ namespace cpsm {
 
 struct MatcherOpts {
   // If true, the query and all items are paths.
-  bool is_path = false;
+  bool is_path = true;
+
   // The currently open file.
   std::string cur_file;
+
+  enum class QueryPathMode {
+    // Match path separators like any other character in the query.
+    NORMAL,
+    // All query characters between two path separators must match within a
+    // single path component.
+    STRICT,
+    // Allow query characters to span path components if no path separators
+    // appear in the query; otherwise treat them strictly.
+    AUTO,
+  };
+  QueryPathMode query_path_mode = QueryPathMode::AUTO;
+
   // If not null, this function is applied to each item to form the actual
   // string that is matched on.
   std::function<boost::string_ref(boost::string_ref)> item_substr_fn;
@@ -52,7 +66,8 @@ class Matcher {
   std::string query_;
   MatcherOpts opts_;
   bool is_case_sensitive_;
-  std::vector<char32_t> query_chars_;
+  bool require_full_part_;
+  std::vector<std::vector<char32_t>> query_parts_chars_;
   std::vector<char32_t> key_part_chars_;
   std::vector<boost::string_ref> cur_file_parts_;
 };

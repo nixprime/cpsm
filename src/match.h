@@ -33,6 +33,15 @@ class Match {
         unmatched_len_(INT_MAX),
         prefix_match_(false) {}
 
+  // Trivial constructor for matches on empty query strings.
+  explicit Match(std::string item)
+      : item_(std::move(item)),
+        part_sum_(INT_MAX),
+        path_distance_(INT_MAX),
+        prefix_len_(INT_MIN),
+        unmatched_len_(INT_MAX),
+        prefix_match_(false) {}
+
   Match(std::string item, int part_sum, int path_distance, int prefix_len,
         bool prefix_match, int unmatched_len)
       : item_(std::move(item)),

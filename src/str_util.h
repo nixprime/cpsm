@@ -19,6 +19,8 @@
 #include <sstream>
 #include <string>
 
+#include <boost/utility/string_ref.hpp>
+
 namespace cpsm {
 
 inline void str_cat_impl(std::stringstream& ss) {}
@@ -29,11 +31,19 @@ void str_cat_impl(std::stringstream& ss, T const& x, Args... args) {
   str_cat_impl(ss, args...);
 }
 
+// Concatenates an arbitrary number of arguments that can be stringifed through
+// a stringstream.
 template <typename... Args>
 std::string str_cat(Args... args) {
   std::stringstream ss;
   str_cat_impl(ss, args...);
   return ss.str();
+}
+
+// Returns a new std::string that is a copy of the data viewed by the given
+// boost::string_ref.
+inline std::string copy_string_ref(boost::string_ref const sref) {
+  return std::string(sref.data(), sref.size());
 }
 
 } // namespace cpsm

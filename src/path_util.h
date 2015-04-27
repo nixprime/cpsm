@@ -32,7 +32,8 @@ boost::string_ref path_basename(boost::string_ref path);
 std::vector<boost::string_ref> path_components_of(boost::string_ref path);
 
 // Returns the distance between two paths that have both been decomposed into
-// path components.
+// path components. The two paths must share the same root, or both be
+// absolute.
 int path_distance_between(std::vector<boost::string_ref> const& x,
                           std::vector<boost::string_ref> const& y);
 

@@ -22,6 +22,7 @@
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "path_util.h"
+#include "str_util.h"
 
 namespace cpsm {
 
@@ -109,7 +110,29 @@ void decompose_utf8_string(boost::string_ref str,
 
 Matcher::Matcher(std::string query, MatcherOpts opts)
     : query_(std::move(query)), opts_(std::move(opts)) {
-  decompose_utf8_string(query_, query_chars_);
+  if (opts_.is_path) {
+    switch (opts_.query_path_mode) {
+      case MatcherOpts::QueryPathMode::NORMAL:
+        require_full_part_ = false;
+        break;
+      case MatcherOpts::QueryPathMode::STRICT:
+        require_full_part_ = true;
+        break;
+      case MatcherOpts::QueryPathMode::AUTO:
+        require_full_part_ = (query_.find_first_of('/') != std::string::npos);
+        break;
+    }
+    for (boost::string_ref const query_part : path_components_of(query_)) {
+      std::vector<char32_t> query_part_chars;
+      decompose_utf8_string(query_part, query_part_chars);
+      query_parts_chars_.emplace_back(std::move(query_part_chars));
+    }
+  } else {
+    require_full_part_ = false;
+    std::vector<char32_t> query_chars;
+    decompose_utf8_string(query_, query_chars);
+    query_parts_chars_.emplace_back(std::move(query_chars));
+  }
   // Queries are smartcased (case-sensitive only if any uppercase appears in the
   // query). Casing only applies to ASCII letters.
   is_case_sensitive_ =
@@ -127,6 +150,11 @@ Matcher::Matcher(std::string query, MatcherOpts opts)
 
 bool Matcher::append_match(boost::string_ref const item,
                            std::vector<Match>& matches) {
+  if (query_parts_chars_.empty()) {
+    matches.emplace_back(copy_string_ref(item));
+    return true;
+  }
+
   boost::string_ref key = item;
   if (opts_.item_substr_fn) {
     key = opts_.item_substr_fn(item);
@@ -148,8 +176,11 @@ bool Matcher::append_match(boost::string_ref const item,
   int unmatched_len = 0;  // unmatched rightmost chars in rightmost key_part
   // Since for paths (the common case) we prefer rightmost path components, we
   // scan path components right-to-left.
-  int end = int(query_chars_.size()) - 1;  // index of last unmatched query char
+  auto query_part_chars_it = query_parts_chars_.rbegin();
+  auto const query_part_chars_end = query_parts_chars_.rend();
+  int end = int(query_part_chars_it->size()) - 1;  // last unmatched query char
   for (boost::string_ref const key_part : boost::adaptors::reverse(key_parts)) {
+    auto const& query_part_chars = *query_part_chars_it;
     key_part_chars_.clear();
     decompose_utf8_string(key_part, key_part_chars_);
     if (!is_case_sensitive_) {
@@ -170,13 +201,18 @@ bool Matcher::append_match(boost::string_ref const item,
     int start = end;  // index of last unmatched query char
     if (start >= 0) {
       for (char32_t const c : boost::adaptors::reverse(key_part_chars_)) {
-        if (c == query_chars_[start]) {
+        if (c == query_part_chars[start]) {
           start--;
           if (start < 0) {
             break;
           }
         }
       }
+    }
+    if (require_full_part_ && start >= 0) {
+      // Didn't consume all characters, but strict query path mode is on.
+      part_idx++;
+      continue;
     }
     int const next_end = start;
 
@@ -185,7 +221,7 @@ bool Matcher::append_match(boost::string_ref const item,
     start++;  // now index of first matched query char
     if (start <= end) {
       for (int i = 0; i < key_part_chars_.size(); i++) {
-        if (key_part_chars_[i] == query_chars_[start]) {
+        if (key_part_chars_[i] == query_part_chars[start]) {
           if (part_idx == 0) {
             if (i == prefix_len) {
               prefix_len++;
@@ -211,10 +247,13 @@ bool Matcher::append_match(boost::string_ref const item,
       part_sum += part_idx;
     }
     if (end < 0) {
-      matches.emplace_back(std::string(item.data(), item.size()), part_sum,
-                           path_distance, prefix_len, prefix_match,
-                           unmatched_len);
-      return true;
+      query_part_chars_it++;
+      if (query_part_chars_it == query_part_chars_end) {
+        matches.emplace_back(copy_string_ref(item), part_sum, path_distance,
+                             prefix_len, prefix_match, unmatched_len);
+        return true;
+      }
+      end = int(query_part_chars_it->size()) - 1;
     }
     part_idx++;
   }
