@@ -18,16 +18,27 @@
 #include <Python.h>
 
 #include <algorithm>
+#include <memory>
 #include <string>
 
 #include <boost/utility/string_ref.hpp>
 
 #include "ctrlp_util.h"
-#include "defer.h"
 #include "match.h"
 #include "matcher.h"
 
-using cpsm::defer;
+namespace {
+
+struct PyObjectDeleter {
+  void operator()(PyObject* const p) const {
+    Py_DECREF(p);
+  }
+};
+
+// Reference-owning, self-releasing PyObject smart pointer.
+typedef std::unique_ptr<PyObject, PyObjectDeleter> PyObjectPtr;
+
+} // namespace
 
 extern "C" {
 
@@ -60,45 +71,41 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     cpsm::Matcher matcher(std::string(query_data, query_size),
                           std::move(mopts));
     std::vector<cpsm::Match> matches;
-    PyObject* items_iter = PyObject_GetIter(items_obj);
+    PyObjectPtr items_iter(PyObject_GetIter(items_obj));
     if (!items_iter) {
       return nullptr;
     }
-    auto items_iter_decref = defer([=]() { Py_DECREF(items_iter); });
-    PyObject* item_obj;
-    while ((item_obj = PyIter_Next(items_iter))) {
-      auto item_obj_decref = defer([=]() { Py_DECREF(item_obj); });
+    PyObjectPtr item_obj(PyIter_Next(items_iter.get()));
+    while (item_obj) {
       char* item_data;
       Py_ssize_t item_size;
-      if (PyString_AsStringAndSize(item_obj, &item_data, &item_size) < 0) {
+      if (PyString_AsStringAndSize(item_obj.get(), &item_data, &item_size) < 0) {
         return nullptr;
       }
       boost::string_ref item(item_data, item_size);
       matcher.append_match(item, matches);
+      item_obj.reset(PyIter_Next(items_iter.get()));
     }
     std::sort(matches.begin(), matches.end());
     if (limit >= 0 && matches.size() > std::size_t(limit)) {
       matches.resize(limit);
     }
 
-    PyObject* matches_list = PyList_New(0);
+    PyObjectPtr matches_list(PyList_New(0));
     if (!matches_list) {
       return nullptr;
     }
-    auto matches_list_decref = defer([=]() { Py_DECREF(matches_list); });
     for (auto const& match : matches) {
-      PyObject* match_str =
-          PyString_FromStringAndSize(match.item().data(), match.item().size());
+      PyObjectPtr match_str(
+          PyString_FromStringAndSize(match.item().data(), match.item().size()));
       if (!match_str) {
         return nullptr;
       }
-      auto match_str_decref = defer([=]() { Py_DECREF(match_str); });
-      if (PyList_Append(matches_list, match_str) < 0) {
+      if (PyList_Append(matches_list.get(), match_str.get()) < 0) {
         return nullptr;
       }
     }
-    matches_list_decref.cancel();
-    return matches_list;
+    return matches_list.release();
   } catch (std::exception const& ex) {
     PyErr_SetString(PyExc_RuntimeError, ex.what());
     return nullptr;
