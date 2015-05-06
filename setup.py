@@ -19,6 +19,7 @@ srcs = [
         "src/ctrlp_util.cc",
         "src/matcher.cc",
         "src/path_util.cc",
+        "src/str_util.cc",
         "src/python_extension_main.cc",
 ]
 

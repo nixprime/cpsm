@@ -18,6 +18,7 @@
 
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <boost/utility/string_ref.hpp>
 
@@ -45,6 +46,18 @@ std::string str_cat(Args... args) {
 inline std::string copy_string_ref(boost::string_ref const sref) {
   return std::string(sref.data(), sref.size());
 }
+
+// Splits a UTF-8-encoded string into code points and append them to the given
+// vector. If the string is not a valid UTF-8 encoded string, invalid bytes are
+// are replaced by the invalid code point 0xdc00+(byte). (This is so that a
+// match can still be attempted.)
+void decompose_utf8_string(boost::string_ref str, std::vector<char32_t>& chars);
+
+// Returns true if the given code point represents a letter or number.
+bool is_alnum(char32_t c);
+
+// Returns true if the given code point represents a uppercase letter.
+bool is_upcase(char32_t c);
 
 } // namespace cpsm
 

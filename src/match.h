@@ -31,6 +31,7 @@ class Match {
         path_distance_(INT_MAX),
         prefix_len_(INT_MIN),
         unmatched_len_(INT_MAX),
+        word_prefixes_(INT_MIN),
         prefix_match_(false) {}
 
   // Trivial constructor for matches on empty query strings.
@@ -40,15 +41,17 @@ class Match {
         path_distance_(INT_MAX),
         prefix_len_(INT_MIN),
         unmatched_len_(INT_MAX),
+        word_prefixes_(INT_MIN),
         prefix_match_(false) {}
 
   Match(std::string item, int part_sum, int path_distance, int prefix_len,
-        bool prefix_match, int unmatched_len)
+        bool prefix_match, int unmatched_len, int word_prefixes)
       : item_(std::move(item)),
         part_sum_(part_sum),
         path_distance_(path_distance),
         prefix_len_(prefix_len),
         unmatched_len_(unmatched_len),
+        word_prefixes_(word_prefixes),
         prefix_match_(prefix_match) {}
 
   std::string const& item() const { return item_; }
@@ -65,6 +68,12 @@ class Match {
     // Prefer longer filename prefix matches.
     if (prefix_len_ != other.prefix_len_) {
       return prefix_len_ > other.prefix_len_;
+    }
+    // Prefer more filename word prefixes (character matches at a character
+    // preceded by punctuation, or a capital letter preceded by a non-capital
+    // letter.)
+    if (word_prefixes_ != other.word_prefixes_) {
+      return word_prefixes_ > other.word_prefixes_;
     }
     // For path matches, prefer fewer matches in path components, and matches
     // further to the right, which together signal higher confidence that such
@@ -93,6 +102,7 @@ class Match {
   int path_distance_;
   int prefix_len_;
   int unmatched_len_;
+  int word_prefixes_;
   bool prefix_match_;
 };
 

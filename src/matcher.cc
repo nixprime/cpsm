@@ -26,88 +26,6 @@
 
 namespace cpsm {
 
-namespace {
-
-// Splits a UTF-8-encoded string into code points and append them to the given
-// vector. If the string is not a valid UTF-8 encoded string, invalid bytes are
-// are replaced by the invalid code point 0xdc00+(byte). (This is so that a
-// match can still be attempted.)
-void decompose_utf8_string(boost::string_ref str,
-                           std::vector<char32_t>& chars) {
-  // Even though most of this function deals with byte-sized quantities, use
-  // char32_t throughout to avoid casting.
-  auto const lookahead = [&](size_t n) -> char32_t {
-    if (n >= str.size()) {
-      return 0;
-    }
-    return str[n];
-  };
-  auto const invalid = [&](char32_t b) {
-    chars.push_back(0xdc00 + b);
-    str.remove_prefix(1);
-  };
-  auto const is_continuation = [](char32_t b) -> bool {
-    return (b & 0xc0) == 0x80;
-  };
-  while (!str.empty()) {
-    auto const b0 = lookahead(0);
-    if (b0 == 0x00) {
-      // Input is a string_ref, not a null-terminated string - premature null?
-      invalid(b0);
-    } else if (b0 < 0x80) {
-      // 1-byte character
-      chars.push_back(b0);
-      str.remove_prefix(1);
-    } else if (b0 < 0xc2) {
-      // Continuation or overlong encoding
-      invalid(b0);
-    } else if (b0 < 0xe0) {
-      // 2-byte sequence
-      auto const b1 = lookahead(1);
-      if (!is_continuation(b1)) {
-        invalid(b0);
-      } else {
-        chars.push_back(((b0 & 0x1f) << 6) | (b1 & 0x3f));
-        str.remove_prefix(2);
-      }
-    } else if (b0 < 0xf0) {
-      // 3-byte sequence
-      auto const b1 = lookahead(1), b2 = lookahead(2);
-      if (!is_continuation(b1) || !is_continuation(b2)) {
-        invalid(b0);
-      } else if (b0 == 0xe0 && b1 < 0xa0) {
-        // Overlong encoding
-        invalid(b0);
-      } else {
-        chars.push_back(((b0 & 0x0f) << 12) | ((b1 & 0x3f) << 6) | (b2 & 0x3f));
-        str.remove_prefix(3);
-      }
-    } else if (b0 < 0xf5) {
-      // 4-byte sequence
-      auto const b1 = lookahead(1), b2 = lookahead(2), b3 = lookahead(3);
-      if (!is_continuation(b1) || !is_continuation(b2) ||
-          !is_continuation(b3)) {
-        invalid(b0);
-      } else if (b0 == 0xf0 && b1 < 0x90) {
-        // Overlong encoding
-        invalid(b0);
-      } else if (b0 == 0xf4 && b1 >= 0x90) {
-        // > U+10FFFF
-        invalid(b0);
-      } else {
-        chars.push_back(((b0 & 0x07) << 18) | ((b1 & 0x3f) << 12) |
-                        ((b2 & 0x3f) << 6) | (b3 & 0x3f));
-        str.remove_prefix(4);
-      }
-    } else {
-      // > U+10FFFF
-      invalid(b0);
-    }
-  }
-}
-
-} // anonymous namespace
-
 Matcher::Matcher(std::string query, MatcherOpts opts)
     : query_(std::move(query)), opts_(std::move(opts)) {
   if (opts_.is_path) {
@@ -174,6 +92,7 @@ bool Matcher::append_match(boost::string_ref const item,
   int prefix_len = 0;  // length of match at start of rightmost key_part
   bool prefix_match = false;  // query and rightmost key_part match first char
   int unmatched_len = 0;  // unmatched rightmost chars in rightmost key_part
+  int word_prefixes = 0;  // word prefix matches in rightmost key_part
   // Since for paths (the common case) we prefer rightmost path components, we
   // scan path components right-to-left.
   auto query_part_chars_it = query_parts_chars_.rbegin();
@@ -216,10 +135,22 @@ bool Matcher::append_match(boost::string_ref const item,
     }
     int const next_end = start;
 
-    // Since within a path component we prefer leftmost character matches, we
-    // pick the leftmost match for each consumed character.
+    // Since within a path component we usually prefer leftmost character
+    // matches, we pick the leftmost match for each consumed character.
     start++;  // now index of first matched query char
     if (start <= end) {
+      const auto is_word_prefix = [&](int i) -> bool {
+        if (i == 0) {
+          return true;
+        }
+        if (is_alnum(key_part_chars_[i]) && !is_alnum(key_part_chars_[i-1])) {
+          return true;
+        }
+        if (is_upcase(key_part_chars_[i]) && !is_upcase(key_part_chars_[i-1])) {
+          return true;
+        }
+        return false;
+      };
       for (int i = 0; i < key_part_chars_.size(); i++) {
         if (key_part_chars_[i] == query_part_chars[start]) {
           if (part_idx == 0) {
@@ -228,6 +159,9 @@ bool Matcher::append_match(boost::string_ref const item,
             }
             if (i == 0 && start == 0) {
               prefix_match = true;
+            }
+            if (is_word_prefix(i)) {
+              word_prefixes++;
             }
           }
           start++;
@@ -250,7 +184,8 @@ bool Matcher::append_match(boost::string_ref const item,
       query_part_chars_it++;
       if (query_part_chars_it == query_part_chars_end) {
         matches.emplace_back(copy_string_ref(item), part_sum, path_distance,
-                             prefix_len, prefix_match, unmatched_len);
+                             prefix_len, prefix_match, unmatched_len,
+                             word_prefixes);
         return true;
       }
       end = int(query_part_chars_it->size()) - 1;
