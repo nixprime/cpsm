@@ -23,7 +23,9 @@ srcs = [
         "src/python_extension_main.cc",
 ]
 
-cpsm = Extension("cpsm", sources=srcs, extra_compile_args=["-std=c++11"])
+cpsm = Extension("cpsm", sources=srcs, extra_compile_args=["-std=c++11"],
+                 define_macros=[("CPSM_CONFIG_ICU", "1")],
+                 libraries=["icudata", "icuuc"])
 
 setup(name="cpsm", version="0.1", description="A path matcher.",
       ext_modules=[cpsm])

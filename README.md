@@ -12,7 +12,9 @@ Requirements
 
 - A C++ compiler supporting C++11.
 
-- Boost headers (Ubuntu: package `libboost-all-dev`).
+- Boost (Ubuntu: package `libboost-all-dev`).
+
+- ICU (Ubuntu: package `libicu-dev`).
 
 Installation
 ------------

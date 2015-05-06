@@ -52,7 +52,7 @@ Matcher::Matcher(std::string query, MatcherOpts opts)
     query_parts_chars_.emplace_back(std::move(query_chars));
   }
   // Queries are smartcased (case-sensitive only if any uppercase appears in the
-  // query). Casing only applies to ASCII letters.
+  // query).
   is_case_sensitive_ = std::any_of(query_.begin(), query_.end(), is_uppercase);
   cur_file_parts_= path_components_of(opts_.cur_file);
   // Keeping the filename in cur_file_parts_ causes the path distance metric to
@@ -111,8 +111,8 @@ bool Matcher::append_match(boost::string_ref const item,
     key_part_chars_.clear();
     decompose_utf8_string(key_part, key_part_chars_);
     if (!is_case_sensitive_) {
-      // The query must not contain any uppercase ASCII letters since otherwise
-      // the query would be case-sensitive.
+      // The query must not contain any uppercase letters since otherwise the
+      // query would be case-sensitive.
       for (char32_t& c : key_part_chars_) {
         if (is_uppercase(c)) {
           c = to_lowercase(c);
