@@ -20,6 +20,8 @@
 
 #include <boost/utility/string_ref.hpp>
 
+#include "str_util.h"
+
 namespace cpsm {
 
 // Returns the part of the given path after the final (rightmost) path
@@ -34,8 +36,8 @@ std::vector<boost::string_ref> path_components_of(boost::string_ref path);
 // Returns the distance between two paths that have both been decomposed into
 // path components. The two paths must share the same root, or both be
 // absolute.
-int path_distance_between(std::vector<boost::string_ref> const& x,
-                          std::vector<boost::string_ref> const& y);
+CharCount path_distance_between(std::vector<boost::string_ref> const& x,
+                                std::vector<boost::string_ref> const& y);
 
 } // namespace cpsm
 

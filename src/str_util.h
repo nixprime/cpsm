@@ -16,6 +16,7 @@
 #ifndef CPSM_STR_UTIL_H_
 #define CPSM_STR_UTIL_H_
 
+#include <cstdint>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -23,6 +24,15 @@
 #include <boost/utility/string_ref.hpp>
 
 namespace cpsm {
+
+// The type to use for character, etc. counts. This is usually uint16_t because
+// cpsm is mostly used to match paths, and path lengths are not capable of
+// exceeding the range of 16 bits on most major operating systems:
+// - Linux: PATH_MAX = 4096
+// - Mac OS X: PATH_MAX = 1024
+// - Windows: MAX_PATH = 260; Unicode interfaces may support paths of up to
+//   32767 characters
+typedef std::uint16_t CharCount;
 
 inline void str_cat_impl(std::stringstream& ss) {}
 

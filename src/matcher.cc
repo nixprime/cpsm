@@ -78,7 +78,7 @@ bool Matcher::append_match(boost::string_ref const item,
     key = opts_.item_substr_fn(item);
   }
   std::vector<boost::string_ref> key_parts;
-  int path_distance;
+  CharCount path_distance;
   if (opts_.is_path) {
     key_parts = path_components_of(key);
     path_distance = path_distance_between(cur_file_parts_, key_parts);
@@ -87,17 +87,27 @@ bool Matcher::append_match(boost::string_ref const item,
     path_distance = 0;
   }
 
-  int part_idx = 0;  // index of key_part from right side
-  int part_sum = 0;  // sum of all key_part_idx with any match
-  int prefix_len = 0;  // length of match at start of rightmost key_part
-  bool prefix_match = false;  // query and rightmost key_part match first char
-  int unmatched_len = 0;  // unmatched rightmost chars in rightmost key_part
-  int word_prefixes = 0;  // word prefix matches in rightmost key_part
+  // Type for indexing into strings.
+  // Index into key_parts, counting from the right.
+  CharCount part_idx = 0;
+  // Sum of key_part_idx for all key_parts with any matches.
+  CharCount part_sum = 0;
+  // Length of contiguous match at the start of the rightmost key_part.
+  CharCount prefix_len = 0;
+  // True iff the first character of the query matches the first character of
+  // the rightmost key_part.
+  bool prefix_match = false;
+  // Number of contiguous rightmost unmatched characters in the rightmost
+  // key_part.
+  CharCount unmatched_len = 0;
+  // Number of word prefix matches in the rightmost key_part.
+  CharCount word_prefixes = 0;
   // Since for paths (the common case) we prefer rightmost path components, we
   // scan path components right-to-left.
   auto query_part_chars_it = query_parts_chars_.rbegin();
   auto const query_part_chars_end = query_parts_chars_.rend();
-  int end = int(query_part_chars_it->size()) - 1;  // last unmatched query char
+  // Index of the last unmatched character in query_part.
+  std::ptrdiff_t end = std::ptrdiff_t(query_part_chars_it->size()) - 1;
   for (boost::string_ref const key_part : boost::adaptors::reverse(key_parts)) {
     auto const& query_part_chars = *query_part_chars_it;
     key_part_chars_.clear();
@@ -117,7 +127,7 @@ bool Matcher::append_match(boost::string_ref const item,
 
     // Since path components are matched right-to-left, query characters must be
     // consumed greedily right-to-left.
-    int start = end;  // index of last unmatched query char
+    std::ptrdiff_t start = end;  // index of last unmatched query char
     if (start >= 0) {
       for (char32_t const c : boost::adaptors::reverse(key_part_chars_)) {
         if (c == query_part_chars[start]) {
@@ -133,13 +143,13 @@ bool Matcher::append_match(boost::string_ref const item,
       part_idx++;
       continue;
     }
-    int const next_end = start;
+    std::ptrdiff_t const next_end = start;
 
     // Since within a path component we usually prefer leftmost character
     // matches, we pick the leftmost match for each consumed character.
     start++;  // now index of first matched query char
     if (start <= end) {
-      const auto is_word_prefix = [&](int i) -> bool {
+      const auto is_word_prefix = [&](std::size_t const i) -> bool {
         if (i == 0) {
           return true;
         }
@@ -151,7 +161,7 @@ bool Matcher::append_match(boost::string_ref const item,
         }
         return false;
       };
-      for (int i = 0; i < key_part_chars_.size(); i++) {
+      for (std::size_t i = 0; i < key_part_chars_.size(); i++) {
         if (key_part_chars_[i] == query_part_chars[start]) {
           if (part_idx == 0) {
             if (i == prefix_len) {
@@ -188,7 +198,7 @@ bool Matcher::append_match(boost::string_ref const item,
                              word_prefixes);
         return true;
       }
-      end = int(query_part_chars_it->size()) - 1;
+      end = std::ptrdiff_t(query_part_chars_it->size()) - 1;
     }
     part_idx++;
   }

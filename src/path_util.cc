@@ -45,10 +45,10 @@ std::vector<boost::string_ref> path_components_of(boost::string_ref path) {
   }
 }
 
-int path_distance_between(std::vector<boost::string_ref> const& x,
-                          std::vector<boost::string_ref> const& y) {
-  int end = std::min(x.size(), y.size());
-  int common_ancestors;
+CharCount path_distance_between(std::vector<boost::string_ref> const& x,
+                                std::vector<boost::string_ref> const& y) {
+  auto const end = std::min(x.size(), y.size());
+  CharCount common_ancestors;
   for (common_ancestors = 0; common_ancestors < end; common_ancestors++) {
     if (x[common_ancestors] != y[common_ancestors]) {
       break;

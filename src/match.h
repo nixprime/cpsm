@@ -17,8 +17,11 @@
 #define CPSM_MATCH_H_
 
 #include <climits>
+#include <limits>
 #include <string>
 #include <utility>
+
+#include "str_util.h"
 
 namespace cpsm {
 
@@ -26,26 +29,14 @@ class Match {
  public:
   // Default constructor provided so that std::vector<Match>::resize() can
   // exist.
-  Match()
-      : part_sum_(INT_MAX),
-        path_distance_(INT_MAX),
-        prefix_len_(INT_MIN),
-        unmatched_len_(INT_MAX),
-        word_prefixes_(INT_MIN),
-        prefix_match_(false) {}
+  Match() {}
 
   // Trivial constructor for matches on empty query strings.
-  explicit Match(std::string item)
-      : item_(std::move(item)),
-        part_sum_(INT_MAX),
-        path_distance_(INT_MAX),
-        prefix_len_(INT_MIN),
-        unmatched_len_(INT_MAX),
-        word_prefixes_(INT_MIN),
-        prefix_match_(false) {}
+  explicit Match(std::string item) : item_(std::move(item)) {}
 
-  Match(std::string item, int part_sum, int path_distance, int prefix_len,
-        bool prefix_match, int unmatched_len, int word_prefixes)
+  Match(std::string item, CharCount part_sum, CharCount path_distance,
+        CharCount prefix_len, bool prefix_match, CharCount unmatched_len,
+        CharCount word_prefixes)
       : item_(std::move(item)),
         part_sum_(part_sum),
         path_distance_(path_distance),
@@ -98,12 +89,12 @@ class Match {
 
  private:
   std::string item_;
-  int part_sum_;
-  int path_distance_;
-  int prefix_len_;
-  int unmatched_len_;
-  int word_prefixes_;
-  bool prefix_match_;
+  CharCount part_sum_ = std::numeric_limits<CharCount>::max();
+  CharCount path_distance_ = std::numeric_limits<CharCount>::max();
+  CharCount prefix_len_ = std::numeric_limits<CharCount>::min();
+  CharCount unmatched_len_ = std::numeric_limits<CharCount>::max();
+  CharCount word_prefixes_ = std::numeric_limits<CharCount>::min();
+  bool prefix_match_ = false;
 };
 
 }  // namespace cpsm

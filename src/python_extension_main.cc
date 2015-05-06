@@ -77,7 +77,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
       matcher.append_match(item, matches);
     }
     std::sort(matches.begin(), matches.end());
-    if (limit >= 0 && matches.size() > limit) {
+    if (limit >= 0 && matches.size() > std::size_t(limit)) {
       matches.resize(limit);
     }
 
