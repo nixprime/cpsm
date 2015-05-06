@@ -120,7 +120,7 @@ bool is_uppercase(char32_t const c) {
   return c >= 'A' && c <= 'Z';
 }
 
-char32_t to_lowercase(char32_t c) {
+char32_t to_lowercase(char32_t const c) {
   return c + ('a' - 'A');
 }
 
