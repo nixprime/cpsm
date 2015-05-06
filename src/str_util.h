@@ -64,10 +64,13 @@ inline std::string copy_string_ref(boost::string_ref const sref) {
 void decompose_utf8_string(boost::string_ref str, std::vector<char32_t>& chars);
 
 // Returns true if the given code point represents a letter or number.
-bool is_alnum(char32_t c);
+bool is_alphanumeric(char32_t c);
 
 // Returns true if the given code point represents a uppercase letter.
-bool is_upcase(char32_t c);
+bool is_uppercase(char32_t c);
+
+// Returns the lowercased version of c. c must be an uppercase letter.
+char32_t to_lowercase(char32_t c);
 
 } // namespace cpsm
 

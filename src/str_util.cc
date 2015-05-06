@@ -91,13 +91,17 @@ void decompose_utf8_string(boost::string_ref str,
   }
 }
 
-bool is_alnum(char32_t const c) {
+bool is_alphanumeric(char32_t const c) {
   return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
          (c >= 'A' && c <= 'Z');
 }
 
-bool is_upcase(char32_t const c) {
+bool is_uppercase(char32_t const c) {
   return c >= 'A' && c <= 'Z';
+}
+
+char32_t to_lowercase(char32_t c) {
+  return c + ('a' - 'A');
 }
 
 } // namespace cpsm
