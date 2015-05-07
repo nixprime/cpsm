@@ -97,15 +97,6 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     auto const& query_part_chars = *query_part_chars_it;
     item_part_chars->clear();
     decompose_utf8_string(item_part, *item_part_chars);
-    if (!is_case_sensitive_) {
-      // The query must not contain any uppercase letters since otherwise the
-      // query would be case-sensitive.
-      for (char32_t& c : *item_part_chars) {
-        if (is_uppercase(c)) {
-          c = to_lowercase(c);
-        }
-      }
-    }
     if (part_index == 0) {
       m.unmatched_len = item_part_chars->size();
     }
@@ -115,7 +106,7 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     std::ptrdiff_t start = end;  // index of last unmatched query char
     if (start >= 0) {
       for (char32_t const c : boost::adaptors::reverse(*item_part_chars)) {
-        if (c == query_part_chars[start]) {
+        if (match_char(c, query_part_chars[start])) {
           start--;
           if (start < 0) {
             break;
@@ -151,7 +142,7 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
       };
       bool at_word_start = false;
       for (std::size_t i = 0; i < item_part_chars->size(); i++) {
-        if ((*item_part_chars)[i] == query_part_chars[start]) {
+        if (match_char((*item_part_chars)[i], query_part_chars[start])) {
           if (part_index == 0) {
             if (is_word_prefix(i)) {
               at_word_start = true;
@@ -160,13 +151,16 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
               m.word_prefix_len++;
             }
             if (i == 0 && start == 0) {
-              m.is_prefix_match = true;
+              m.prefix_match = MatchBase::PrefixMatch::PARTIAL;
             }
           }
           start++;
           if (start > end) {
             if (part_index == 0) {
               m.unmatched_len = item_part_chars->size() - (i + 1);
+              if (i == std::size_t(end)) {
+                m.prefix_match = MatchBase::PrefixMatch::FULL;
+              }
             }
             break;
           }
@@ -192,6 +186,18 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
   }
 
   return false;
+}
+
+bool Matcher::match_char(char32_t item, char32_t const query) const {
+  if (!is_case_sensitive_) {
+    // The query must not contain any uppercase letters since otherwise the
+    // query would be case-sensitive, so just force all uppercase characters to
+    // lowercase.
+    if (is_uppercase(item)) {
+      item = to_lowercase(item);
+    }
+  }
+  return item == query;
 }
 
 }  // namespace cpsm

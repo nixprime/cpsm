@@ -16,6 +16,8 @@
 #ifndef CPSM_MATCH_H_
 #define CPSM_MATCH_H_
 
+#include <cstdint>
+
 #include "str_util.h"
 
 namespace cpsm {
@@ -42,7 +44,19 @@ struct MatchBase {
 
   // True iff the first character of the query matched the first character of
   // the rightmost path component in the item.
-  bool is_prefix_match = false;
+  enum class PrefixMatch : std::uint8_t {
+    // The first character of the query did not match the first character of
+    // the rightmost path component in the item.
+    NONE,
+    // The first character of the query matched the first character of the
+    // rightmost path component in the item, but the same is not true of all
+    // remaining characters.
+    PARTIAL,
+    // The query matched all of the first characters of the rightmost path
+    // component of the item.
+    FULL,
+  };
+  PrefixMatch prefix_match = PrefixMatch::NONE;
 };
 
 template <typename T>
@@ -58,8 +72,8 @@ struct Match : public MatchBase {
 // quality).
 template <typename T>
 bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
-  if (lhs.is_prefix_match != rhs.is_prefix_match) {
-    return lhs.is_prefix_match;
+  if (lhs.prefix_match != rhs.prefix_match) {
+    return lhs.prefix_match > rhs.prefix_match;
   }
   if (lhs.word_prefix_len != rhs.word_prefix_len) {
     return lhs.word_prefix_len > rhs.word_prefix_len;

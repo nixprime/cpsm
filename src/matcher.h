@@ -66,6 +66,8 @@ class Matcher {
   bool match_base(boost::string_ref item, MatchBase& m,
                   std::vector<char32_t>* buf) const;
 
+  bool match_char(char32_t item, char32_t query) const;
+
   std::string query_;
   MatcherOpts opts_;
   bool is_case_sensitive_;
