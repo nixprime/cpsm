@@ -72,6 +72,6 @@ bool is_uppercase(char32_t c);
 // Returns the lowercased version of c. c must be an uppercase letter.
 char32_t to_lowercase(char32_t c);
 
-} // namespace cpsm
+}  // namespace cpsm
 
 #endif /* CPSM_STR_UTIL_H_ */

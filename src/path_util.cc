@@ -24,7 +24,7 @@ namespace cpsm {
 boost::string_ref path_basename(boost::string_ref const path) {
   auto const pos = path.find_last_of('/');
   if (pos != boost::string_ref::npos) {
-    return path.substr(pos+1);
+    return path.substr(pos + 1);
   }
   return path;
 }
@@ -57,4 +57,4 @@ CharCount path_distance_between(std::vector<boost::string_ref> const& x,
   return x.size() + y.size() - (2 * common_ancestors);
 }
 
-} // namespace cpsm
+}  // namespace cpsm

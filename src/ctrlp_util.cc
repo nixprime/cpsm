@@ -29,19 +29,18 @@ std::function<boost::string_ref(boost::string_ref)> match_mode_item_substr_fn(
   } else if (mmode == "filename-only") {
     return path_basename;
   } else if (mmode == "first-non-tab") {
-    return [](boost::string_ref const x) -> boost::string_ref {
-      return x.substr(0, x.find_first_of('\t'));
-    };
+    return [](boost::string_ref const x)
+        -> boost::string_ref { return x.substr(0, x.find_first_of('\t')); };
   } else if (mmode == "until-last-tab") {
     return [](boost::string_ref const x) -> boost::string_ref {
       auto const pos = x.find_last_of('\t');
       if (pos == boost::string_ref::npos) {
         return x;
       }
-      return x.substr(pos+1);
+      return x.substr(pos + 1);
     };
   }
   throw std::runtime_error(str_cat("unknown match mode ", mmode));
 }
 
-} // namespace cpsm
+}  // namespace cpsm

@@ -29,6 +29,6 @@ namespace cpsm {
 std::function<boost::string_ref(boost::string_ref)> match_mode_item_substr_fn(
     boost::string_ref mmode);
 
-} // namespace cpsm
+}  // namespace cpsm
 
 #endif /* CPSM_CTRLP_UTIL_H_ */

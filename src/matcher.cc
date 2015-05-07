@@ -54,7 +54,7 @@ Matcher::Matcher(std::string query, MatcherOpts opts)
   // Queries are smartcased (case-sensitive only if any uppercase appears in the
   // query).
   is_case_sensitive_ = std::any_of(query_.begin(), query_.end(), is_uppercase);
-  cur_file_parts_= path_components_of(opts_.cur_file);
+  cur_file_parts_ = path_components_of(opts_.cur_file);
   // Keeping the filename in cur_file_parts_ causes the path distance metric to
   // favor the currently open file. While we don't want to exclude the
   // currently open file from being matched, it shouldn't be favored over its
@@ -206,4 +206,4 @@ bool Matcher::append_match(boost::string_ref const item,
   return false;
 }
 
-} // namespace cpsm
+}  // namespace cpsm

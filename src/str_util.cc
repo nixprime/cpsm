@@ -35,9 +35,8 @@ void decompose_utf8_string(boost::string_ref str,
     chars.push_back(0xdc00 + b);
     str.remove_prefix(1);
   };
-  auto const is_continuation = [](char32_t b) -> bool {
-    return (b & 0xc0) == 0x80;
-  };
+  auto const is_continuation =
+      [](char32_t b) -> bool { return (b & 0xc0) == 0x80; };
   while (!str.empty()) {
     auto const b0 = lookahead(0);
     if (b0 == 0x00) {
@@ -105,25 +104,19 @@ bool is_uppercase(char32_t const c) {
   return u_hasBinaryProperty(c, UCHAR_UPPERCASE);
 }
 
-char32_t to_lowercase(char32_t const c) {
-  return u_tolower(c);
-}
+char32_t to_lowercase(char32_t const c) { return u_tolower(c); }
 
-#else // CPSM_CONFIG_ICU
+#else  // CPSM_CONFIG_ICU
 
 bool is_alphanumeric(char32_t const c) {
   return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
          (c >= 'A' && c <= 'Z');
 }
 
-bool is_uppercase(char32_t const c) {
-  return c >= 'A' && c <= 'Z';
-}
+bool is_uppercase(char32_t const c) { return c >= 'A' && c <= 'Z'; }
 
-char32_t to_lowercase(char32_t const c) {
-  return c + ('a' - 'A');
-}
+char32_t to_lowercase(char32_t const c) { return c + ('a' - 'A'); }
 
-#endif // CPSM_CONFIG_ICU
+#endif  // CPSM_CONFIG_ICU
 
-} // namespace cpsm
+}  // namespace cpsm

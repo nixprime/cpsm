@@ -39,6 +39,6 @@ std::vector<boost::string_ref> path_components_of(boost::string_ref path);
 CharCount path_distance_between(std::vector<boost::string_ref> const& x,
                                 std::vector<boost::string_ref> const& y);
 
-} // namespace cpsm
+}  // namespace cpsm
 
 #endif /* CPSM_PATH_UTIL_H_ */

@@ -29,22 +29,20 @@
 namespace {
 
 struct PyObjectDeleter {
-  void operator()(PyObject* const p) const {
-    Py_DECREF(p);
-  }
+  void operator()(PyObject* const p) const { Py_DECREF(p); }
 };
 
 // Reference-owning, self-releasing PyObject smart pointer.
 typedef std::unique_ptr<PyObject, PyObjectDeleter> PyObjectPtr;
 
-} // namespace
+}  // namespace
 
 extern "C" {
 
 static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                                   PyObject* kwargs) {
-  static char const* kwlist[] = {"items", "query", "limit", "mmode", "ispath",
-                                 "crfile", nullptr};
+  static char const* kwlist[] = {"items",  "query",  "limit", "mmode",
+                                 "ispath", "crfile", nullptr};
   PyObject* items_obj;
   char const* query_data;
   Py_ssize_t query_size;
@@ -78,7 +76,8 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     while (item_obj) {
       char* item_data;
       Py_ssize_t item_size;
-      if (PyString_AsStringAndSize(item_obj.get(), &item_data, &item_size) < 0) {
+      if (PyString_AsStringAndSize(item_obj.get(), &item_data, &item_size) <
+          0) {
         return nullptr;
       }
       boost::string_ref item(item_data, item_size);
@@ -117,8 +116,5 @@ static PyMethodDef cpsm_methods[] = {
      "Match strings with a CtrlP-compatible interface"},
     {nullptr, nullptr, 0, nullptr}};
 
-PyMODINIT_FUNC initcpsm() {
-  Py_InitModule("cpsm", cpsm_methods);
-}
-
+PyMODINIT_FUNC initcpsm() { Py_InitModule("cpsm", cpsm_methods); }
 }

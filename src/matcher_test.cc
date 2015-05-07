@@ -31,9 +31,7 @@ class TestAssertionFailure : public std::exception {
   explicit TestAssertionFailure(Args... args)
       : msg_(str_cat(args...)) {}
 
-  char const* what() const noexcept override {
-    return msg_.c_str();
-  }
+  char const* what() const noexcept override { return msg_.c_str(); }
 
  private:
   std::string msg_;
@@ -41,15 +39,8 @@ class TestAssertionFailure : public std::exception {
 
 void test_match_order() {
   std::vector<std::string> items({
-      "barfoo",
-      "fbar",
-      "foo/bar",
-      "foo/fbar",
-      "foo/foobar",
-      "foo/foo_bar",
-      "foo/foo_bar_test",
-      "foo/FooBar",
-      "foo/qux",
+      "barfoo", "fbar", "foo/bar", "foo/fbar", "foo/foobar", "foo/foo_bar",
+      "foo/foo_bar_test", "foo/FooBar", "foo/qux",
   });
   Matcher matcher("fb");
   std::vector<Match> matches;
@@ -63,9 +54,8 @@ void test_match_order() {
                             [item](Match const& match)
                                 -> bool { return item == match.item(); });
       };
-  auto const matched = [&](boost::string_ref const item) -> bool {
-    return match_it(item) != matches.end();
-  };
+  auto const matched = [&](boost::string_ref const item)
+                           -> bool { return match_it(item) != matches.end(); };
   auto const assert_matched = [&](boost::string_ref const item) {
     if (!matched(item)) {
       throw TestAssertionFailure("incorrectly matched '", item, "'");
@@ -133,7 +123,7 @@ void test_match_order() {
   assert_better_match("foo/foobar", "foo/bar");
 }
 
-} // namespace cpsm
+}  // namespace cpsm
 
 int main(int argc, char** argv) {
   try {
