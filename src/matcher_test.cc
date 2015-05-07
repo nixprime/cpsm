@@ -19,17 +19,18 @@
 #include <string>
 #include <vector>
 
-#include "match.h"
-#include "matcher.h"
+#include "cpsm.h"
 #include "str_util.h"
 
 namespace cpsm {
 
 class TestAssertionFailure : public std::exception {
  public:
+  TestAssertionFailure() : msg_("test assertion failed") {}
+
   template <typename... Args>
   explicit TestAssertionFailure(Args... args)
-      : msg_(str_cat(args...)) {}
+      : msg_(str_cat("test assertion failed: ", args...)) {}
 
   char const* what() const noexcept override { return msg_.c_str(); }
 
@@ -42,17 +43,21 @@ void test_match_order() {
       "barfoo", "fbar", "foo/bar", "foo/fbar", "foo/foobar", "foo/foo_bar",
       "foo/foo_bar_test", "foo/FooBar", "foo/qux",
   });
-  Matcher matcher("fb");
-  std::vector<Match> matches;
-  for (auto const& item : items) {
-    matcher.append_match(item, matches);
+  std::vector<std::string> matches;
+  std::printf("matches:");
+  for (std::string* m : match("fb", items, [](std::string const& s) {
+         return boost::string_ref(s);
+       })) {
+    matches.push_back(*m);
+    std::printf(" %s", m->c_str());
   }
+  std::printf("\n");
 
   auto const match_it =
-      [&](boost::string_ref const item) -> std::vector<Match>::iterator {
-        return std::find_if(matches.begin(), matches.end(),
-                            [item](Match const& match)
-                                -> bool { return item == match.item(); });
+      [&](boost::string_ref const item) -> std::vector<std::string>::iterator {
+        return std::find_if(
+            matches.begin(), matches.end(),
+            [item](std::string const& match) -> bool { return item == match; });
       };
   auto const matched = [&](boost::string_ref const item)
                            -> bool { return match_it(item) != matches.end(); };
@@ -76,7 +81,6 @@ void test_match_order() {
   assert_matched("foo/FooBar");
   assert_not_matched("foo/qux");
 
-  std::sort(matches.begin(), matches.end());
   auto const match_index = [&](boost::string_ref const item) -> std::size_t {
     return match_it(item) - matches.begin();
   };

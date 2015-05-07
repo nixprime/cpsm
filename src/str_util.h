@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -50,6 +51,21 @@ std::string str_cat(Args... args) {
   str_cat_impl(ss, args...);
   return ss.str();
 }
+
+// Exception type used by this package.
+class Error : public std::exception {
+ public:
+  Error() : msg_("(unknown error)") {}
+
+  template <typename... Args>
+  explicit Error(Args... args)
+      : msg_(str_cat(args...)) {}
+
+  char const* what() const noexcept override { return msg_.c_str(); }
+
+ private:
+  std::string msg_;
+};
 
 // Returns a new std::string that is a copy of the data viewed by the given
 // boost::string_ref.

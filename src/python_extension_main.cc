@@ -16,15 +16,15 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <algorithm>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <utility>
 
 #include <boost/utility/string_ref.hpp>
 
 #include "ctrlp_util.h"
-#include "match.h"
-#include "matcher.h"
+#include "cpsm.h"
 
 namespace {
 
@@ -63,11 +63,23 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     cpsm::MatcherOpts mopts;
     mopts.cur_file = std::string(cur_file_data, cur_file_size);
     mopts.is_path = is_path;
-    mopts.item_substr_fn = cpsm::match_mode_item_substr_fn(
+    std::string query(query_data, query_size);
+
+    auto item_substr_fn = cpsm::match_mode_item_substr_fn(
         boost::string_ref(mmode_data, mmode_size));
-    cpsm::Matcher matcher(std::string(query_data, query_size),
-                          std::move(mopts));
-    std::vector<cpsm::Match> matches;
+    auto item_str_fn =
+        [&item_substr_fn](std::pair<boost::string_ref, PyObjectPtr> const& p)
+            -> boost::string_ref {
+              boost::string_ref str = p.first;
+              if (item_substr_fn) {
+                return item_substr_fn(str);
+              }
+              return str;
+            };
+
+    // Read items sequentially, since the Python API is probably not
+    // thread-safe.
+    std::vector<std::pair<boost::string_ref, PyObjectPtr>> items;
     PyObjectPtr items_iter(PyObject_GetIter(items_obj));
     if (!items_iter) {
       return nullptr;
@@ -80,26 +92,22 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
           0) {
         return nullptr;
       }
-      boost::string_ref item(item_data, item_size);
-      matcher.append_match(item, matches);
+      items.emplace_back(boost::string_ref(item_data, item_size),
+                         std::move(item_obj));
       item_obj.reset(PyIter_Next(items_iter.get()));
     }
-    std::sort(matches.begin(), matches.end());
-    if (limit >= 0 && matches.size() > std::size_t(limit)) {
-      matches.resize(limit);
-    }
 
+    // Do matching.
+    std::vector<std::pair<boost::string_ref, PyObjectPtr>*> matches =
+        cpsm::match(query, items, item_str_fn, mopts, limit);
+
+    // Translate matches back to Python.
     PyObjectPtr matches_list(PyList_New(0));
     if (!matches_list) {
       return nullptr;
     }
     for (auto const& match : matches) {
-      PyObjectPtr match_str(
-          PyString_FromStringAndSize(match.item().data(), match.item().size()));
-      if (!match_str) {
-        return nullptr;
-      }
-      if (PyList_Append(matches_list.get(), match_str.get()) < 0) {
+      if (PyList_Append(matches_list.get(), match->second.get()) < 0) {
         return nullptr;
       }
     }

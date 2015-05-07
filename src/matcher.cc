@@ -64,69 +64,57 @@ Matcher::Matcher(std::string query, MatcherOpts opts)
   }
 }
 
-bool Matcher::append_match(boost::string_ref const item,
-                           std::vector<Match>& matches) {
+bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
+                         std::vector<char32_t>* item_part_chars) const {
+  m = MatchBase();
   if (query_parts_chars_.empty()) {
-    matches.emplace_back(copy_string_ref(item));
     return true;
   }
 
-  boost::string_ref key = item;
-  if (opts_.item_substr_fn) {
-    key = opts_.item_substr_fn(item);
-  }
-  std::vector<boost::string_ref> key_parts;
-  CharCount path_distance;
-  if (opts_.is_path) {
-    key_parts = path_components_of(key);
-    path_distance = path_distance_between(cur_file_parts_, key_parts);
-  } else {
-    key_parts.push_back(key);
-    path_distance = 0;
+  std::vector<char32_t> item_part_chars_local;
+  if (!item_part_chars) {
+    item_part_chars = &item_part_chars_local;
   }
 
-  // Type for indexing into strings.
-  // Index into key_parts, counting from the right.
-  CharCount part_idx = 0;
-  // Sum of key_part_idx for all key_parts with any matches.
-  CharCount part_sum = 0;
-  // Length of contiguous matches at the start of words in the rightmost
-  // key_part.
-  CharCount prefix_len = 0;
-  // True iff the first character of the query matches the first character of
-  // the rightmost key_part.
-  bool prefix_match = false;
-  // Number of contiguous rightmost unmatched characters in the rightmost
-  // key_part.
-  CharCount unmatched_len = 0;
+  std::vector<boost::string_ref> item_parts;
+  if (opts_.is_path) {
+    item_parts = path_components_of(item);
+    m.path_distance = path_distance_between(cur_file_parts_, item_parts);
+  } else {
+    item_parts.push_back(item);
+  }
+
   // Since for paths (the common case) we prefer rightmost path components, we
   // scan path components right-to-left.
   auto query_part_chars_it = query_parts_chars_.rbegin();
   auto const query_part_chars_end = query_parts_chars_.rend();
   // Index of the last unmatched character in query_part.
   std::ptrdiff_t end = std::ptrdiff_t(query_part_chars_it->size()) - 1;
-  for (boost::string_ref const key_part : boost::adaptors::reverse(key_parts)) {
+  // Index into item_parts, counting from the right.
+  CharCount part_index = 0;
+  for (boost::string_ref const item_part :
+       boost::adaptors::reverse(item_parts)) {
     auto const& query_part_chars = *query_part_chars_it;
-    key_part_chars_.clear();
-    decompose_utf8_string(key_part, key_part_chars_);
+    item_part_chars->clear();
+    decompose_utf8_string(item_part, *item_part_chars);
     if (!is_case_sensitive_) {
       // The query must not contain any uppercase letters since otherwise the
       // query would be case-sensitive.
-      for (char32_t& c : key_part_chars_) {
+      for (char32_t& c : *item_part_chars) {
         if (is_uppercase(c)) {
           c = to_lowercase(c);
         }
       }
     }
-    if (part_idx == 0) {
-      unmatched_len = key_part_chars_.size();
+    if (part_index == 0) {
+      m.unmatched_len = item_part_chars->size();
     }
 
     // Since path components are matched right-to-left, query characters must be
     // consumed greedily right-to-left.
     std::ptrdiff_t start = end;  // index of last unmatched query char
     if (start >= 0) {
-      for (char32_t const c : boost::adaptors::reverse(key_part_chars_)) {
+      for (char32_t const c : boost::adaptors::reverse(*item_part_chars)) {
         if (c == query_part_chars[start]) {
           start--;
           if (start < 0) {
@@ -136,8 +124,9 @@ bool Matcher::append_match(boost::string_ref const item,
       }
     }
     if (require_full_part_ && start >= 0) {
-      // Didn't consume all characters, but strict query path mode is on.
-      part_idx++;
+      // Didn't consume all characters, but strict query path mode is on, so the
+      // consumed characters don't count.
+      part_index++;
       continue;
     }
     std::ptrdiff_t const next_end = start;
@@ -150,34 +139,34 @@ bool Matcher::append_match(boost::string_ref const item,
         if (i == 0) {
           return true;
         }
-        if (is_alphanumeric(key_part_chars_[i]) &&
-            !is_alphanumeric(key_part_chars_[i - 1])) {
+        if (is_alphanumeric((*item_part_chars)[i]) &&
+            !is_alphanumeric((*item_part_chars)[i - 1])) {
           return true;
         }
-        if (is_uppercase(key_part_chars_[i]) &&
-            !is_uppercase(key_part_chars_[i - 1])) {
+        if (is_uppercase((*item_part_chars)[i]) &&
+            !is_uppercase((*item_part_chars)[i - 1])) {
           return true;
         }
         return false;
       };
       bool at_word_start = false;
-      for (std::size_t i = 0; i < key_part_chars_.size(); i++) {
-        if (key_part_chars_[i] == query_part_chars[start]) {
-          if (part_idx == 0) {
+      for (std::size_t i = 0; i < item_part_chars->size(); i++) {
+        if ((*item_part_chars)[i] == query_part_chars[start]) {
+          if (part_index == 0) {
             if (is_word_prefix(i)) {
               at_word_start = true;
             }
             if (at_word_start) {
-              prefix_len++;
+              m.word_prefix_len++;
             }
             if (i == 0 && start == 0) {
-              prefix_match = true;
+              m.is_prefix_match = true;
             }
           }
           start++;
           if (start > end) {
-            if (part_idx == 0) {
-              unmatched_len -= i + 1;
+            if (part_index == 0) {
+              m.unmatched_len = item_part_chars->size() - (i + 1);
             }
             break;
           }
@@ -187,21 +176,19 @@ bool Matcher::append_match(boost::string_ref const item,
       }
     }
 
-    // Did we match anything in this key part?
+    // Did we match anything in this item part?
     if (end != next_end) {
       end = next_end;
-      part_sum += part_idx;
+      m.part_index_sum += part_index;
     }
     if (end < 0) {
       query_part_chars_it++;
       if (query_part_chars_it == query_part_chars_end) {
-        matches.emplace_back(copy_string_ref(item), part_sum, path_distance,
-                             prefix_len, prefix_match, unmatched_len);
         return true;
       }
       end = std::ptrdiff_t(query_part_chars_it->size()) - 1;
     }
-    part_idx++;
+    part_index++;
   }
 
   return false;

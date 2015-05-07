@@ -40,7 +40,7 @@ std::function<boost::string_ref(boost::string_ref)> match_mode_item_substr_fn(
       return x.substr(pos + 1);
     };
   }
-  throw std::runtime_error(str_cat("unknown match mode ", mmode));
+  throw Error("unknown match mode ", mmode);
 }
 
 }  // namespace cpsm

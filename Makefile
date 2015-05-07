@@ -1,4 +1,4 @@
-CCFLAGS := -std=c++11 -Wall
+CCFLAGS := -std=c++11 -Wall -pthread
 
 .PHONY: alltests
 alltests: test/matcher_test

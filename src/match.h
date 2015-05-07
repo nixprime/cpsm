@@ -16,77 +16,66 @@
 #ifndef CPSM_MATCH_H_
 #define CPSM_MATCH_H_
 
-#include <climits>
-#include <limits>
-#include <string>
-#include <utility>
-
 #include "str_util.h"
 
 namespace cpsm {
 
-class Match {
- public:
-  // Default constructor provided so that std::vector<Match>::resize() can
-  // exist.
-  Match() {}
+struct MatchBase {
+  // Sum of path component indexes (counting from the right) for all item path
+  // components containing at least one match, a lower value of which should
+  // indicate higher confidence that the matches are correct.
+  CharCount part_index_sum = 0;
 
-  // Trivial constructor for matches on empty query strings.
-  explicit Match(std::string item) : item_(std::move(item)) {}
+  // The number of path components that must be traversed between the query and
+  // item paths.
+  CharCount path_distance = 0;
 
-  Match(std::string item, CharCount part_sum, CharCount path_distance,
-        CharCount prefix_len, bool prefix_match, CharCount unmatched_len)
-      : item_(std::move(item)),
-        part_sum_(part_sum),
-        path_distance_(path_distance),
-        prefix_len_(prefix_len),
-        unmatched_len_(unmatched_len),
-        prefix_match_(prefix_match) {}
+  // The number of consecutive unmatched characters at the end of the rightmost
+  // path component of the item. Since it's easier to add characters at the end
+  // of a query (vs. in the middle) to refine a match, lower values are weakly
+  // preferred.
+  CharCount unmatched_len = 0;
 
-  std::string const& item() const { return item_; }
+  // The number of consecutive matched characters at the beginning of the
+  // "words" in rightmost path component of the item.
+  CharCount word_prefix_len = 0;
 
-  // Returns true if this is a *better* match than other. In all of the below,
-  // "filename" means the last path component of the match substring for path
-  // matches, or the entire match substring for non-path matches.
-  bool operator<(Match const& other) const {
-    // Prefer query prefix matches (cases where the first character of the query
-    // matched the first character of the filename).
-    if (prefix_match_ != other.prefix_match_) {
-      return prefix_match_;
-    }
-    // Prefer more characters in filename word prefix matches.
-    if (prefix_len_ != other.prefix_len_) {
-      return prefix_len_ > other.prefix_len_;
-    }
-    // For path matches, prefer fewer matches in path components, and matches
-    // further to the right, which together signal higher confidence that such
-    // matches are actually correct.
-    if (part_sum_ != other.part_sum_) {
-      return part_sum_ < other.part_sum_;
-    }
-    // For path matches, prefer paths that are "closer" to the currently open
-    // file.
-    if (path_distance_ != other.path_distance_) {
-      return path_distance_ < other.path_distance_;
-    }
-    // Prefer matches with fewer unmatched characters rightward of the rightmost
-    // match. This is because it's easier to add characters at the end of a
-    // query to refine a match.
-    if (unmatched_len_ != other.unmatched_len_) {
-      return unmatched_len_ < other.unmatched_len_;
-    }
-    // Sort lexicographically on the item if all else fails.
-    return item_ < other.item_;
-  }
-
- private:
-  std::string item_;
-  CharCount part_sum_ = std::numeric_limits<CharCount>::max();
-  CharCount path_distance_ = std::numeric_limits<CharCount>::max();
-  CharCount prefix_len_ = std::numeric_limits<CharCount>::min();
-  CharCount unmatched_len_ = std::numeric_limits<CharCount>::max();
-  bool prefix_match_ = false;
+  // True iff the first character of the query matched the first character of
+  // the rightmost path component in the item.
+  bool is_prefix_match = false;
 };
+
+template <typename T>
+struct Match : public MatchBase {
+  T* item = nullptr;
+
+  Match() = default;
+  explicit Match(T& item) : item(&item) {}
+};
+
+// Returns true if lhs is a *better* match than rhs (so that sorting in
+// ascending order, as is default for std::sort, sorts in *descending* match
+// quality).
+template <typename T>
+bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
+  if (lhs.is_prefix_match != rhs.is_prefix_match) {
+    return lhs.is_prefix_match;
+  }
+  if (lhs.word_prefix_len != rhs.word_prefix_len) {
+    return lhs.word_prefix_len > rhs.word_prefix_len;
+  }
+  if (lhs.part_index_sum != rhs.part_index_sum) {
+    return lhs.part_index_sum < rhs.part_index_sum;
+  }
+  if (lhs.path_distance != rhs.path_distance) {
+    return lhs.path_distance < rhs.path_distance;
+  }
+  if (lhs.unmatched_len != rhs.unmatched_len) {
+    return lhs.unmatched_len < rhs.unmatched_len;
+  }
+  // Sort lexicographically on the item if all else fails.
+  return *(lhs.item) < *(rhs.item);
+}
 
 }  // namespace cpsm
 
