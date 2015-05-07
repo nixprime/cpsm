@@ -90,7 +90,8 @@ bool Matcher::append_match(boost::string_ref const item,
   CharCount part_idx = 0;
   // Sum of key_part_idx for all key_parts with any matches.
   CharCount part_sum = 0;
-  // Length of contiguous match at the start of the rightmost key_part.
+  // Length of contiguous matches at the start of words in the rightmost
+  // key_part.
   CharCount prefix_len = 0;
   // True iff the first character of the query matches the first character of
   // the rightmost key_part.
@@ -98,8 +99,6 @@ bool Matcher::append_match(boost::string_ref const item,
   // Number of contiguous rightmost unmatched characters in the rightmost
   // key_part.
   CharCount unmatched_len = 0;
-  // Number of word prefix matches in the rightmost key_part.
-  CharCount word_prefixes = 0;
   // Since for paths (the common case) we prefer rightmost path components, we
   // scan path components right-to-left.
   auto query_part_chars_it = query_parts_chars_.rbegin();
@@ -161,17 +160,18 @@ bool Matcher::append_match(boost::string_ref const item,
         }
         return false;
       };
+      bool at_word_start = false;
       for (std::size_t i = 0; i < key_part_chars_.size(); i++) {
         if (key_part_chars_[i] == query_part_chars[start]) {
           if (part_idx == 0) {
-            if (i == prefix_len) {
+            if (is_word_prefix(i)) {
+              at_word_start = true;
+            }
+            if (at_word_start) {
               prefix_len++;
             }
             if (i == 0 && start == 0) {
               prefix_match = true;
-            }
-            if (is_word_prefix(i)) {
-              word_prefixes++;
             }
           }
           start++;
@@ -181,6 +181,8 @@ bool Matcher::append_match(boost::string_ref const item,
             }
             break;
           }
+        } else {
+          at_word_start = false;
         }
       }
     }
@@ -194,8 +196,7 @@ bool Matcher::append_match(boost::string_ref const item,
       query_part_chars_it++;
       if (query_part_chars_it == query_part_chars_end) {
         matches.emplace_back(copy_string_ref(item), part_sum, path_distance,
-                             prefix_len, prefix_match, unmatched_len,
-                             word_prefixes);
+                             prefix_len, prefix_match, unmatched_len);
         return true;
       }
       end = std::ptrdiff_t(query_part_chars_it->size()) - 1;

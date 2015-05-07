@@ -35,14 +35,12 @@ class Match {
   explicit Match(std::string item) : item_(std::move(item)) {}
 
   Match(std::string item, CharCount part_sum, CharCount path_distance,
-        CharCount prefix_len, bool prefix_match, CharCount unmatched_len,
-        CharCount word_prefixes)
+        CharCount prefix_len, bool prefix_match, CharCount unmatched_len)
       : item_(std::move(item)),
         part_sum_(part_sum),
         path_distance_(path_distance),
         prefix_len_(prefix_len),
         unmatched_len_(unmatched_len),
-        word_prefixes_(word_prefixes),
         prefix_match_(prefix_match) {}
 
   std::string const& item() const { return item_; }
@@ -56,15 +54,9 @@ class Match {
     if (prefix_match_ != other.prefix_match_) {
       return prefix_match_;
     }
-    // Prefer longer filename prefix matches.
+    // Prefer more characters in filename word prefix matches.
     if (prefix_len_ != other.prefix_len_) {
       return prefix_len_ > other.prefix_len_;
-    }
-    // Prefer more filename word prefixes (character matches at a character
-    // preceded by punctuation, or a capital letter preceded by a non-capital
-    // letter.)
-    if (word_prefixes_ != other.word_prefixes_) {
-      return word_prefixes_ > other.word_prefixes_;
     }
     // For path matches, prefer fewer matches in path components, and matches
     // further to the right, which together signal higher confidence that such
@@ -93,7 +85,6 @@ class Match {
   CharCount path_distance_ = std::numeric_limits<CharCount>::max();
   CharCount prefix_len_ = std::numeric_limits<CharCount>::min();
   CharCount unmatched_len_ = std::numeric_limits<CharCount>::max();
-  CharCount word_prefixes_ = std::numeric_limits<CharCount>::min();
   bool prefix_match_ = false;
 };
 
