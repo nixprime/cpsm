@@ -38,6 +38,9 @@ std::vector<T*> match(std::string const& query, std::vector<T>& items,
                       F const& f, MatcherOpts const& opts = MatcherOpts(),
                       std::size_t limit = 0, unsigned max_concurrency = 0) {
   unsigned nr_threads = Thread::hardware_concurrency();
+  if (!nr_threads) {
+    nr_threads = 1;
+  }
   if (nr_threads > items.size()) {
     nr_threads = unsigned(items.size());
   }
