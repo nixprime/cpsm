@@ -41,7 +41,7 @@ class TestAssertionFailure : public std::exception {
 void test_match_order() {
   std::vector<std::string> items({
       "barfoo", "fbar", "foo/bar", "foo/fbar", "foo/foobar", "foo/foo_bar",
-      "foo/foo_bar_test", "foo/FooBar", "foo/qux",
+      "foo/foo_bar_test", "foo/FooBar", "foo/abar", "foo/qux",
   });
   std::vector<std::string> matches;
   std::printf("matches:");
@@ -79,6 +79,7 @@ void test_match_order() {
   assert_matched("foo/foo_bar");
   assert_matched("foo/foo_bar_test");
   assert_matched("foo/FooBar");
+  assert_matched("foo/abar");
   assert_not_matched("foo/qux");
 
   auto const match_index = [&](boost::string_ref const item) -> std::size_t {
@@ -121,10 +122,14 @@ void test_match_order() {
   // trailing unmatched characters, although it's unspecified whether it should
   // be higher or lower than "foo/foobar".
   assert_better_match("foo/foo_bar", "foo/foo_bar_test");
-  // "foo/bar" should rank the lowest despite matching closer to the left side
-  // of the item since it breaks the match across multiple path components.
+  // "foo/bar" should rank lower than any of the above despite matching closer
+  // to the left side of the item since it breaks the match across multiple
+  // path components.
   assert_better_match("foo/foo_bar_test", "foo/bar");
   assert_better_match("foo/foobar", "foo/bar");
+  // "foo/abar" should rank lowest since the matched 'b' isn't even at the
+  // beginning of the filename.
+  assert_better_match("foo/bar", "foo/abar");
 }
 
 }  // namespace cpsm

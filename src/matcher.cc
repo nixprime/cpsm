@@ -158,7 +158,7 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
           if (start > end) {
             if (part_index == 0) {
               m.unmatched_len = item_part_chars->size() - (i + 1);
-              if (i == std::size_t(end)) {
+              if (i == std::size_t(end) && next_end < 0) {
                 m.prefix_match = MatchBase::PrefixMatch::FULL;
               }
             }
