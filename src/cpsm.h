@@ -80,9 +80,12 @@ std::vector<T*> match(std::string const& query, std::vector<T>& items,
     matches.clear();
     matches.shrink_to_fit();
   }
-  std::sort(all_matches.begin(), all_matches.end());
   if (limit && all_matches.size() > limit) {
+    std::partial_sort(all_matches.begin(), all_matches.begin() + limit,
+                      all_matches.end());
     all_matches.resize(limit);
+  } else {
+    std::sort(all_matches.begin(), all_matches.end());
   }
   std::vector<T*> match_items;
   for (auto const& m : all_matches) {
