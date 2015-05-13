@@ -67,9 +67,6 @@ Matcher::Matcher(std::string query, MatcherOpts opts)
 bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
                          std::vector<char32_t>* item_part_chars) const {
   m = MatchBase();
-  if (query_parts_chars_.empty()) {
-    return true;
-  }
 
   std::vector<char32_t> item_part_chars_local;
   if (!item_part_chars) {
@@ -82,6 +79,10 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     m.path_distance = path_distance_between(cur_file_parts_, item_parts);
   } else {
     item_parts.push_back(item);
+  }
+
+  if (query_parts_chars_.empty()) {
+    return true;
   }
 
   // Since for paths (the common case) we prefer rightmost path components, we
