@@ -24,6 +24,11 @@
 
 namespace cpsm {
 
+// Returns the platform path separator.
+inline constexpr char32_t path_separator() {
+  return '/';
+}
+
 // Returns the part of the given path after the final (rightmost) path
 // separator.
 boost::string_ref path_basename(boost::string_ref path);

@@ -37,23 +37,17 @@ Matcher::Matcher(std::string query, MatcherOpts opts)
         require_full_part_ = true;
         break;
       case MatcherOpts::QueryPathMode::AUTO:
-        require_full_part_ = (query_.find_first_of('/') != std::string::npos);
+        require_full_part_ = (query_.find_first_of(path_separator()) != std::string::npos);
         break;
-    }
-    for (boost::string_ref const query_part : path_components_of(query_)) {
-      std::vector<char32_t> query_part_chars;
-      decompose_utf8_string(query_part, query_part_chars);
-      query_parts_chars_.emplace_back(std::move(query_part_chars));
     }
   } else {
     require_full_part_ = false;
-    std::vector<char32_t> query_chars;
-    decompose_utf8_string(query_, query_chars);
-    query_parts_chars_.emplace_back(std::move(query_chars));
   }
+  decompose_utf8_string(query_, query_chars_);
   // Queries are smartcased (case-sensitive only if any uppercase appears in the
   // query).
-  is_case_sensitive_ = std::any_of(query_.begin(), query_.end(), is_uppercase);
+  is_case_sensitive_ =
+      std::any_of(query_chars_.begin(), query_chars_.end(), is_uppercase);
   cur_file_parts_ = path_components_of(opts_.cur_file);
   // Keeping the filename in cur_file_parts_ causes the path distance metric to
   // favor the currently open file. While we don't want to exclude the
@@ -65,12 +59,17 @@ Matcher::Matcher(std::string query, MatcherOpts opts)
 }
 
 bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
-                         std::vector<char32_t>* item_part_chars) const {
+                         std::vector<char32_t>* key_chars,
+                         std::vector<char32_t>* temp_chars) const {
   m = MatchBase();
 
-  std::vector<char32_t> item_part_chars_local;
-  if (!item_part_chars) {
-    item_part_chars = &item_part_chars_local;
+  std::vector<char32_t> key_chars_local;
+  if (!key_chars) {
+    key_chars = &key_chars_local;
+  }
+  std::vector<char32_t> temp_chars_local;
+  if (!temp_chars) {
+    temp_chars = &temp_chars_local;
   }
 
   std::vector<boost::string_ref> item_parts;
@@ -81,112 +80,114 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     item_parts.push_back(item);
   }
 
-  if (query_parts_chars_.empty()) {
+  if (query_chars_.empty()) {
     return true;
   }
 
   // Since for paths (the common case) we prefer rightmost path components, we
   // scan path components right-to-left.
-  auto query_part_chars_it = query_parts_chars_.rbegin();
-  auto const query_part_chars_end = query_parts_chars_.rend();
-  // Index of the last unmatched character in query_part.
-  std::ptrdiff_t end = std::ptrdiff_t(query_part_chars_it->size()) - 1;
+  auto query_it = query_chars_.crbegin();
+  auto const query_end = query_chars_.crend();
+  auto query_key_begin = query_chars_.cend();
   // Index into item_parts, counting from the right.
   CharCount part_index = 0;
   for (boost::string_ref const item_part :
        boost::adaptors::reverse(item_parts)) {
-    auto const& query_part_chars = *query_part_chars_it;
+    if (query_it == query_end) {
+      break;
+    }
+
+    std::vector<char32_t>* const item_part_chars =
+        part_index ? temp_chars : key_chars;
     item_part_chars->clear();
     decompose_utf8_string(item_part, *item_part_chars);
-    if (part_index == 0) {
-      m.unmatched_len = item_part_chars->size();
-    }
 
     // Since path components are matched right-to-left, query characters must be
     // consumed greedily right-to-left.
-    std::ptrdiff_t start = end;  // index of last unmatched query char
-    if (start >= 0) {
-      for (char32_t const c : boost::adaptors::reverse(*item_part_chars)) {
-        if (match_char(c, query_part_chars[start])) {
-          start--;
-          if (start < 0) {
-            break;
-          }
+    auto query_prev = query_it;
+    for (char32_t const c : boost::adaptors::reverse(*item_part_chars)) {
+      if (match_char(c, *query_it)) {
+        ++query_it;
+        if (query_it == query_end) {
+          break;
         }
       }
     }
-    if (require_full_part_ && start >= 0) {
-      // Didn't consume all characters, but strict query path mode is on, so the
-      // consumed characters don't count.
-      part_index++;
+
+    // If strict query path mode is on, the match must have run to a path
+    // separator. If not, discard the match.
+    if (require_full_part_ &&
+        !((query_it == query_end) || (*query_it == path_separator()))) {
+      query_it = query_prev;
       continue;
     }
-    std::ptrdiff_t const next_end = start;
 
-    // Since within a path component we usually prefer leftmost character
-    // matches, we pick the leftmost match for each consumed character.
-    start++;  // now index of first matched query char
-    if (start <= end) {
-      const auto is_word_prefix = [&](std::size_t const i) -> bool {
-        if (i == 0) {
-          return true;
-        }
-        if (is_alphanumeric((*item_part_chars)[i]) &&
-            !is_alphanumeric((*item_part_chars)[i - 1])) {
-          return true;
-        }
-        if (is_uppercase((*item_part_chars)[i]) &&
-            !is_uppercase((*item_part_chars)[i - 1])) {
-          return true;
-        }
-        return false;
-      };
-      bool at_word_start = false;
-      for (std::size_t i = 0; i < item_part_chars->size(); i++) {
-        if (match_char((*item_part_chars)[i], query_part_chars[start])) {
-          if (part_index == 0) {
-            if (is_word_prefix(i)) {
-              at_word_start = true;
-            }
-            if (at_word_start) {
-              m.word_prefix_len++;
-            }
-            if (i == 0 && start == 0) {
-              m.prefix_match = MatchBase::PrefixMatch::PARTIAL;
-            }
-          }
-          start++;
-          if (start > end) {
-            if (part_index == 0) {
-              m.unmatched_len = item_part_chars->size() - (i + 1);
-              if (i == std::size_t(end) && next_end < 0) {
-                m.prefix_match = MatchBase::PrefixMatch::FULL;
-              }
-            }
-            break;
-          }
-        } else {
-          at_word_start = false;
-        }
-      }
-    }
-
-    // Did we match anything in this item part?
-    if (end != next_end) {
-      end = next_end;
-      m.part_index_sum += part_index;
-    }
-    if (end < 0) {
-      query_part_chars_it++;
-      if (query_part_chars_it == query_part_chars_end) {
-        return true;
-      }
-      end = std::ptrdiff_t(query_part_chars_it->size()) - 1;
+    m.part_index_sum += part_index;
+    if (part_index == 0) {
+      query_key_begin = query_it.base();
     }
     part_index++;
   }
 
-  return false;
+  // Did all characters match?
+  if (query_it != query_end) {
+    return false;
+  }
+
+  // Now do more refined matching on the key (the rightmost path component of
+  // the item for a path match, and just the full item otherwise).
+  match_key(*key_chars, query_key_begin, m);
+  return true;
+}
+
+void Matcher::match_key(std::vector<char32_t> const& key,
+                        std::vector<char32_t>::const_iterator query_key,
+                        MatchBase& m) const {
+  auto const query_key_end = query_chars_.cend();
+  if (query_key == query_key_end) {
+    return;
+  }
+  // Since within a path component we usually prefer leftmost character
+  // matches, we pick the leftmost match for each consumed character.
+  // key can't be empty since [query_key, query_chars_.end()) is non-empty.
+  const auto is_word_prefix = [&](std::size_t const i) -> bool {
+    if (i == 0) {
+      return true;
+    }
+    if (is_alphanumeric(key[i]) && !is_alphanumeric(key[i - 1])) {
+      return true;
+    }
+    if (is_uppercase(key[i]) && !is_uppercase(key[i - 1])) {
+      return true;
+    }
+    return false;
+  };
+  bool at_word_start = false;
+  bool is_full_prefix = (query_key == query_chars_.cbegin());
+  for (std::size_t i = 0; i < key.size(); i++) {
+    if (match_char(key[i], *query_key)) {
+      if (is_word_prefix(i)) {
+        at_word_start = true;
+      }
+      if (at_word_start) {
+        m.word_prefix_len++;
+      }
+      if (i == 0) {
+        m.prefix_match = MatchBase::PrefixMatch::PARTIAL;
+      }
+      ++query_key;
+      if (query_key == query_key_end) {
+        m.unmatched_len = key.size() - (i + 1);
+        if (is_full_prefix) {
+          m.prefix_match = MatchBase::PrefixMatch::FULL;
+        }
+        return;
+      }
+    } else {
+      at_word_start = false;
+      is_full_prefix = false;
+    }
+  }
 }
 
 bool Matcher::match_char(char32_t item, char32_t const query) const {

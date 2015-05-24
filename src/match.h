@@ -17,6 +17,7 @@
 #define CPSM_MATCH_H_
 
 #include <cstdint>
+#include <string>
 
 #include "str_util.h"
 
@@ -57,6 +58,13 @@ struct MatchBase {
     FULL,
   };
   PrefixMatch prefix_match = PrefixMatch::NONE;
+
+  std::string debug_string() const {
+    return str_cat("part_index_sum=", part_index_sum, ", path_distance=",
+                   path_distance, ", unmatched_len=", unmatched_len,
+                   ", word_prefix_len=", word_prefix_len, ", prefix_match=",
+                   int(prefix_match));
+  }
 };
 
 template <typename T>

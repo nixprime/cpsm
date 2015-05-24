@@ -22,7 +22,7 @@
 namespace cpsm {
 
 boost::string_ref path_basename(boost::string_ref const path) {
-  auto const pos = path.find_last_of('/');
+  auto const pos = path.find_last_of(path_separator());
   if (pos != boost::string_ref::npos) {
     return path.substr(pos + 1);
   }
@@ -32,7 +32,7 @@ boost::string_ref path_basename(boost::string_ref const path) {
 std::vector<boost::string_ref> path_components_of(boost::string_ref path) {
   std::vector<boost::string_ref> parts;
   while (true) {
-    auto const pos = path.find_first_of('/');
+    auto const pos = path.find_first_of(path_separator());
     if (pos == boost::string_ref::npos) {
       if (!path.empty()) {
         parts.push_back(path);

@@ -58,21 +58,27 @@ class Matcher {
   // buffer for each match.
   template <typename T>
   bool match(boost::string_ref const item, Match<T>& m,
-             std::vector<char32_t>* const buf = nullptr) const {
-    return match_base(item, m, buf);
+             std::vector<char32_t>* const buf = nullptr,
+             std::vector<char32_t>* const buf2 = nullptr) const {
+    return match_base(item, m, buf, buf2);
   }
 
  private:
   bool match_base(boost::string_ref item, MatchBase& m,
-                  std::vector<char32_t>* buf) const;
+                  std::vector<char32_t>* buf,
+                  std::vector<char32_t>* buf2) const;
+
+  void match_key(std::vector<char32_t> const& key,
+                 std::vector<char32_t>::const_iterator query_key_begin,
+                 MatchBase& m) const;
 
   bool match_char(char32_t item, char32_t query) const;
 
   std::string query_;
+  std::vector<char32_t> query_chars_;
   MatcherOpts opts_;
   bool is_case_sensitive_;
   bool require_full_part_;
-  std::vector<std::vector<char32_t>> query_parts_chars_;
   std::vector<boost::string_ref> cur_file_parts_;
 };
 
