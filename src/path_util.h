@@ -25,7 +25,7 @@
 namespace cpsm {
 
 // Returns the platform path separator.
-inline constexpr char32_t path_separator() {
+constexpr char32_t path_separator() {
   return '/';
 }
 
