@@ -24,7 +24,7 @@ namespace cpsm {
 
 std::function<boost::string_ref(boost::string_ref)> match_mode_item_substr_fn(
     boost::string_ref mmode) {
-  if (mmode == "full-line") {
+  if (mmode.empty() || mmode == "full-line") {
     return nullptr;
   } else if (mmode == "filename-only") {
     return path_basename;
