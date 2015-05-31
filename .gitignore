@@ -1,6 +1,5 @@
 # Output directories
 build/
-python/
 test/
 
 # Vim
