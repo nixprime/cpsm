@@ -17,6 +17,7 @@
 #include <Python.h>
 
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -24,9 +25,30 @@
 #include <boost/utility/string_ref.hpp>
 
 #include "ctrlp_util.h"
-#include "cpsm.h"
+#include "match.h"
+#include "matcher.h"
+#include "par_util.h"
+#include "str_util.h"
 
 namespace {
+
+template <typename F>
+class Deferred {
+  public:
+    explicit Deferred(F f) : f_(std::move(f)), enabled_(true) {}
+    ~Deferred() { if (enabled_) f_(); }
+
+    void cancel() { enabled_ = false; }
+
+  private:
+    F f_;
+    bool enabled_;
+};
+
+template <typename F>
+Deferred<F> defer(F f) {
+  return Deferred<F>(f);
+}
 
 struct PyObjectDeleter {
   void operator()(PyObject* const p) const { Py_DECREF(p); }
@@ -35,6 +57,30 @@ struct PyObjectDeleter {
 // Reference-owning, self-releasing PyObject smart pointer.
 typedef std::unique_ptr<PyObject, PyObjectDeleter> PyObjectPtr;
 
+void get_concurrency_params(unsigned int const max_threads,
+                            unsigned int& nr_threads, std::size_t& batch_size) {
+  nr_threads = cpsm::Thread::hardware_concurrency();
+  if (!nr_threads) {
+    nr_threads = 1;
+  }
+  if (max_threads && (nr_threads > max_threads)) {
+    nr_threads = max_threads;
+  }
+  // Batch size needs to be large enough that processing one batch is at least
+  // long enough for all other threads to collect one batch (to minimize
+  // contention on the lock that guards the Python API), so it should scale
+  // linearly with the number of other threads. The coefficient is determined
+  // empirically.
+  constexpr std::size_t BATCH_SIZE_PER_THREAD = 32;
+  batch_size = BATCH_SIZE_PER_THREAD * (nr_threads - 1);
+  if (!batch_size) {
+    // nr_threads == 1, so batch_size is fairly arbitrary. Set it as for
+    // nr_threads == 2 (equivalent memory usage for holding the batch, half as
+    // much locking).
+    batch_size = BATCH_SIZE_PER_THREAD * 2;
+  }
+}
+
 }  // namespace
 
 extern "C" {
@@ -42,72 +88,155 @@ extern "C" {
 static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                                   PyObject* kwargs) {
   static char const* kwlist[] = {"items",  "query",  "limit", "mmode",
-                                 "ispath", "crfile", nullptr};
+                                 "ispath", "crfile", "nr_threads", nullptr};
   PyObject* items_obj;
   char const* query_data;
   Py_ssize_t query_size;
-  int limit = -1;
+  int limit_int = -1;
   char const* mmode_data = nullptr;
   Py_ssize_t mmode_size = 0;
   int is_path = 0;
   char const* cur_file_data = nullptr;
   Py_ssize_t cur_file_size = 0;
+  int nr_threads_int = 0;
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwargs, "Os#|is#is#", const_cast<char**>(kwlist), &items_obj,
-          &query_data, &query_size, &limit, &mmode_data, &mmode_size, &is_path,
-          &cur_file_data, &cur_file_size)) {
+          args, kwargs, "Os#|is#is#i", const_cast<char**>(kwlist), &items_obj,
+          &query_data, &query_size, &limit_int, &mmode_data, &mmode_size,
+          &is_path, &cur_file_data, &cur_file_size, &nr_threads_int)) {
     return nullptr;
   }
 
+  // Each match needs to be associated with both a boost::string_ref (for
+  // correct sorting) and the PyObject (so it can be returned).
+  typedef std::pair<boost::string_ref, PyObjectPtr> Item;
+
   try {
+    std::string query(query_data, query_size);
     cpsm::MatcherOpts mopts;
     mopts.cur_file = std::string(cur_file_data, cur_file_size);
     mopts.is_path = is_path;
-    std::string query(query_data, query_size);
-
+    cpsm::Matcher matcher(std::move(query), std::move(mopts));
     auto item_substr_fn = cpsm::match_mode_item_substr_fn(
         boost::string_ref(mmode_data, mmode_size));
-    auto item_str_fn =
-        [&item_substr_fn](std::pair<boost::string_ref, PyObjectPtr> const& p)
-            -> boost::string_ref {
-              boost::string_ref str = p.first;
-              if (item_substr_fn) {
-                return item_substr_fn(str);
-              }
-              return str;
-            };
+    std::size_t const limit = (limit_int >= 0) ? std::size_t(limit_int) : 0;
+    unsigned int const max_threads =
+        (nr_threads_int >= 0) ? static_cast<unsigned int>(nr_threads_int) : 0;
 
-    // Read items sequentially, since the Python API is probably not
-    // thread-safe.
-    std::vector<std::pair<boost::string_ref, PyObjectPtr>> items;
+    unsigned int nr_threads;
+    std::size_t items_per_batch;
+    get_concurrency_params(max_threads, nr_threads, items_per_batch);
+
     PyObjectPtr items_iter(PyObject_GetIter(items_obj));
     if (!items_iter) {
       return nullptr;
     }
-    PyObjectPtr item_obj(PyIter_Next(items_iter.get()));
-    while (item_obj) {
-      char* item_data;
-      Py_ssize_t item_size;
-      if (PyString_AsStringAndSize(item_obj.get(), &item_data, &item_size) <
-          0) {
-        return nullptr;
+    std::mutex items_mu;
+    bool end_of_python_iter = false;
+    bool have_python_ex = false;
+
+    // Do matching in parallel.
+    std::vector<std::vector<cpsm::Match<Item>>> thread_matches(nr_threads);
+    std::vector<cpsm::Thread> threads;
+    for (unsigned int i = 0; i < nr_threads; i++) {
+      auto& matches = thread_matches[i];
+      threads.emplace_back(
+          [&matcher, item_substr_fn, limit, items_per_batch, &items_iter,
+           &items_mu, &end_of_python_iter, &have_python_ex, &matches]() {
+            std::vector<Item> items;
+            items.reserve(items_per_batch);
+            std::vector<PyObjectPtr> unmatched_objs;
+            // Ensure that unmatched PyObjects are released with items_mu held,
+            // even if an exception is thrown.
+            auto release_unmatched_objs =
+                defer([&items, &unmatched_objs, &items_mu]() {
+                  std::lock_guard<std::mutex> lock(items_mu);
+                  items.clear();
+                  unmatched_objs.clear();
+                });
+
+            std::vector<char32_t> buf, buf2;
+            while (true) {
+              {
+                // Collect a batch (with items_mu held to guard access to the
+                // Python API).
+                std::lock_guard<std::mutex> lock(items_mu);
+                // Drop references on unmatched PyObjects.
+                unmatched_objs.clear();
+                if (end_of_python_iter || have_python_ex) {
+                  return;
+                }
+                for (std::size_t i = 0; i < items_per_batch; i++) {
+                  PyObjectPtr item_obj(PyIter_Next(items_iter.get()));
+                  if (!item_obj) {
+                    end_of_python_iter = true;
+                    break;
+                  }
+                  char* item_data;
+                  Py_ssize_t item_size;
+                  if (PyString_AsStringAndSize(item_obj.get(), &item_data,
+                                               &item_size) < 0) {
+                    have_python_ex = true;
+                    return;
+                  }
+                  items.emplace_back(boost::string_ref(item_data, item_size),
+                                     std::move(item_obj));
+                }
+              }
+              if (items.empty()) {
+                // Do pre-sorting and limiting if there's a limit to decrease
+                // the amount of work that has to be done in the parent
+                // thread.
+                if (limit) {
+                  sort_limit(matches, limit);
+                }
+                return;
+              }
+              for (auto& item : items) {
+                boost::string_ref item_str(item.first);
+                if (item_substr_fn) {
+                  item_str = item_substr_fn(item_str);
+                }
+                cpsm::Match<Item> m(std::move(item));
+                if (matcher.match(item_str, m, &buf, &buf2)) {
+                  matches.emplace_back(std::move(m));
+                } else {
+                  unmatched_objs.emplace_back(std::move(m.item.second));
+                }
+              }
+              items.clear();
+            }
+          });
+    }
+    std::size_t nr_matches = 0;
+    for (unsigned int i = 0; i < nr_threads; i++) {
+      threads[i].join();
+      if (threads[i].has_exception()) {
+        throw cpsm::Error(threads[i].exception_msg());
       }
-      items.emplace_back(boost::string_ref(item_data, item_size),
-                         std::move(item_obj));
-      item_obj.reset(PyIter_Next(items_iter.get()));
+      nr_matches += thread_matches[i].size();
+    }
+    if (have_python_ex) {
+      return nullptr;
     }
 
-    // Do matching.
-    std::vector<std::pair<boost::string_ref, PyObjectPtr>*> matches =
-        cpsm::match(query, items, item_str_fn, mopts, limit);
+    // Combine per-thread match lists.
+    std::vector<cpsm::Match<Item>> all_matches;
+    all_matches.reserve(nr_matches);
+    for (unsigned int i = 0; i < nr_threads; i++) {
+      auto& matches = thread_matches[i];
+      std::move(matches.begin(), matches.end(),
+                std::back_inserter(all_matches));
+      matches.shrink_to_fit();
+    }
+    sort_limit(all_matches, limit);
 
     // Translate matches back to Python.
     PyObjectPtr matches_list(PyList_New(0));
     if (!matches_list) {
       return nullptr;
     }
-    for (auto const& match : matches) {
-      if (PyList_Append(matches_list.get(), match->second.get()) < 0) {
+    for (auto const& match : all_matches) {
+      if (PyList_Append(matches_list.get(), match.item.second.get()) < 0) {
         return nullptr;
       }
     }

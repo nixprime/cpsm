@@ -16,8 +16,10 @@
 #ifndef CPSM_MATCH_H_
 #define CPSM_MATCH_H_
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "str_util.h"
 
@@ -69,10 +71,10 @@ struct MatchBase {
 
 template <typename T>
 struct Match : public MatchBase {
-  T* item = nullptr;
+  T item;
 
   Match() = default;
-  explicit Match(T& item) : item(&item) {}
+  explicit Match(T item) : item(std::move(item)) {}
 };
 
 // Returns true if lhs is a *better* match than rhs (so that sorting in
@@ -96,7 +98,18 @@ bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
     return lhs.unmatched_len < rhs.unmatched_len;
   }
   // Sort lexicographically on the item if all else fails.
-  return *(lhs.item) < *(rhs.item);
+  return lhs.item < rhs.item;
+}
+
+template <typename T>
+void sort_limit(std::vector<T>& vec,
+                typename std::vector<T>::size_type const limit = 0) {
+  if (limit && limit < vec.size()) {
+    std::partial_sort(vec.begin(), vec.begin() + limit, vec.end());
+    vec.resize(limit);
+  } else {
+    std::sort(vec.begin(), vec.end());
+  }
 }
 
 }  // namespace cpsm

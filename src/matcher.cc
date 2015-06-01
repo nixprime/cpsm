@@ -26,8 +26,8 @@
 
 namespace cpsm {
 
-Matcher::Matcher(std::string query, MatcherOpts opts)
-    : query_(std::move(query)), opts_(std::move(opts)) {
+Matcher::Matcher(boost::string_ref const query, MatcherOpts opts)
+    : opts_(std::move(opts)) {
   if (opts_.is_path) {
     switch (opts_.query_path_mode) {
       case MatcherOpts::QueryPathMode::NORMAL:
@@ -37,13 +37,13 @@ Matcher::Matcher(std::string query, MatcherOpts opts)
         require_full_part_ = true;
         break;
       case MatcherOpts::QueryPathMode::AUTO:
-        require_full_part_ = (query_.find_first_of(path_separator()) != std::string::npos);
+        require_full_part_ = (query.find_first_of(path_separator()) != std::string::npos);
         break;
     }
   } else {
     require_full_part_ = false;
   }
-  decompose_utf8_string(query_, query_chars_);
+  decompose_utf8_string(query, query_chars_);
   // Queries are smartcased (case-sensitive only if any uppercase appears in the
   // query).
   is_case_sensitive_ =

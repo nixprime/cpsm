@@ -19,7 +19,8 @@
 #include <string>
 #include <vector>
 
-#include "cpsm.h"
+#include "match.h"
+#include "matcher.h"
 #include "str_util.h"
 
 namespace cpsm {
@@ -43,15 +44,23 @@ void test_match_order() {
       "barfoo", "fbar", "foo/bar", "foo/fbar", "foo/foobar", "foo/foo_bar",
       "foo/foo_bar_test", "foo/FooBar", "foo/abar", "foo/qux",
   });
+
+  Matcher matcher("fb");
+  std::vector<Match<std::string>> match_objs;
   std::vector<std::string> matches;
-  std::printf("matches:");
-  for (std::string* m : match("fb", items, [](std::string const& s) {
-         return boost::string_ref(s);
-       })) {
-    matches.push_back(*m);
-    std::printf(" %s", m->c_str());
+  for (auto const& item : items) {
+    Match<std::string> match(item);
+    if (matcher.match(item, match)) {
+      match_objs.emplace_back(std::move(match));
+    }
   }
-  std::printf("\n");
+  sort_limit(match_objs);
+  std::printf("matches:");
+  for (auto& m : match_objs) {
+    std::printf(" %s", m.item.c_str());
+    matches.emplace_back(std::move(m.item));
+   }
+   std::printf("\n");
 
   auto const match_it =
       [&](boost::string_ref const item) -> std::vector<std::string>::iterator {

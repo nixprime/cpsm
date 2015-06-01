@@ -47,7 +47,7 @@ struct MatcherOpts {
 
 class Matcher {
  public:
-  explicit Matcher(std::string query, MatcherOpts opts = MatcherOpts());
+  explicit Matcher(boost::string_ref query, MatcherOpts opts = MatcherOpts());
 
   // If the query represented by this matcher matches the given item, fills the
   // given match object with information about the match and returns true.
@@ -74,7 +74,6 @@ class Matcher {
 
   bool match_char(char32_t item, char32_t query) const;
 
-  std::string query_;
   std::vector<char32_t> query_chars_;
   MatcherOpts opts_;
   bool is_case_sensitive_;
