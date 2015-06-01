@@ -157,6 +157,7 @@ void Matcher::match_key(std::vector<char32_t> const& key,
                         MatchBase& m) const {
   auto const query_key_end = query_chars_.cend();
   if (query_key == query_key_end) {
+    m.unmatched_len = key.size();
     return;
   }
   bool const query_key_at_begin =
