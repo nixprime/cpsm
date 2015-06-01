@@ -74,10 +74,8 @@ void get_concurrency_params(unsigned int const max_threads,
   constexpr std::size_t BATCH_SIZE_PER_THREAD = 32;
   batch_size = BATCH_SIZE_PER_THREAD * (nr_threads - 1);
   if (!batch_size) {
-    // nr_threads == 1, so batch_size is fairly arbitrary. Set it as for
-    // nr_threads == 2 (equivalent memory usage for holding the batch, half as
-    // much locking).
-    batch_size = BATCH_SIZE_PER_THREAD * 2;
+    // nr_threads == 1, so batch_size is fairly arbitrary.
+    batch_size = BATCH_SIZE_PER_THREAD;
   }
 }
 
