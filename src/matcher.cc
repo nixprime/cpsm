@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <utility>
 
 #include <boost/range/adaptor/reversed.hpp>
@@ -28,7 +29,15 @@ namespace cpsm {
 
 Matcher::Matcher(boost::string_ref const query, MatcherOpts opts)
     : opts_(std::move(opts)) {
+  decompose_utf8_string(query, query_chars_);
   if (opts_.is_path) {
+    // Store the index of the first character after the rightmost path
+    // separator in the query. (Store an index rather than an iterator to keep
+    // Matcher copyable/moveable.)
+    query_key_begin_index_ =
+        std::find(query_chars_.crbegin(), query_chars_.crend(),
+                  path_separator()).base() -
+        query_chars_.cbegin();
     switch (opts_.query_path_mode) {
       case MatcherOpts::QueryPathMode::NORMAL:
         require_full_part_ = false;
@@ -37,17 +46,20 @@ Matcher::Matcher(boost::string_ref const query, MatcherOpts opts)
         require_full_part_ = true;
         break;
       case MatcherOpts::QueryPathMode::AUTO:
-        require_full_part_ = (query.find_first_of(path_separator()) != std::string::npos);
+        require_full_part_ =
+            (query.find_first_of(path_separator()) != std::string::npos);
         break;
     }
   } else {
+    query_key_begin_index_ = 0;
     require_full_part_ = false;
   }
-  decompose_utf8_string(query, query_chars_);
+
   // Queries are smartcased (case-sensitive only if any uppercase appears in the
   // query).
   is_case_sensitive_ =
       std::any_of(query_chars_.begin(), query_chars_.end(), is_uppercase);
+
   cur_file_parts_ = path_components_of(opts_.cur_file);
   // Keeping the filename in cur_file_parts_ causes the path distance metric to
   // favor the currently open file. While we don't want to exclude the
@@ -147,8 +159,8 @@ void Matcher::match_key(std::vector<char32_t> const& key,
   if (query_key == query_key_end) {
     return;
   }
-  // Since within a path component we usually prefer leftmost character
-  // matches, we pick the leftmost match for each consumed character.
+  bool const query_key_at_begin =
+      (query_key == (query_chars_.cbegin() + query_key_begin_index_));
   // key can't be empty since [query_key, query_chars_.end()) is non-empty.
   const auto is_word_prefix = [&](std::size_t const i) -> bool {
     if (i == 0) {
@@ -162,30 +174,63 @@ void Matcher::match_key(std::vector<char32_t> const& key,
     }
     return false;
   };
-  bool at_word_start = false;
-  bool is_full_prefix = (query_key == query_chars_.cbegin());
-  for (std::size_t i = 0; i < key.size(); i++) {
-    if (match_char(key[i], *query_key)) {
-      if (is_word_prefix(i)) {
-        at_word_start = true;
-      }
-      if (at_word_start) {
-        m.word_prefix_len++;
-      }
-      if (i == 0) {
-        m.prefix_match = MatchBase::PrefixMatch::PARTIAL;
-      }
-      ++query_key;
-      if (query_key == query_key_end) {
-        m.unmatched_len = key.size() - (i + 1);
-        if (is_full_prefix) {
-          m.prefix_match = MatchBase::PrefixMatch::FULL;
+
+  // Attempt two matches. In the first pass, only match word prefixes and
+  // non-alphanumeric characters to try and get a word prefix-only match. In
+  // the second pass, match greedily.
+  for (int pass = 0; pass < 2; pass++) {
+    CharCount word_index = 0;
+    bool at_word_start = true;
+    bool word_matched = false;
+    bool is_full_prefix = query_key_at_begin;
+    m.prefix_score = std::numeric_limits<CharCount2>::max();
+    switch (pass) {
+      case 0:
+        if (query_key_at_begin) {
+          m.prefix_score = 0;
         }
-        return;
+        break;
+      case 1:
+        if (query_key_at_begin) {
+          m.prefix_score = std::numeric_limits<CharCount2>::max() - 1;
+        }
+        // Need to reset word_prefix_len after failed first pass.
+        m.word_prefix_len = 0;
+        break;
+    }
+    for (std::size_t i = 0; i < key.size(); i++) {
+      if (is_word_prefix(i)) {
+        word_index++;
+        at_word_start = true;
+        word_matched = false;
       }
-    } else {
-      at_word_start = false;
-      is_full_prefix = false;
+      if (pass == 0 && is_alphanumeric(*query_key) && !at_word_start) {
+        is_full_prefix = false;
+        continue;
+      }
+      if (match_char(key[i], *query_key)) {
+        if (at_word_start) {
+          m.word_prefix_len++;
+        }
+        if (pass == 0 && query_key_at_begin && !word_matched) {
+          m.prefix_score += word_index;
+          word_matched = true;
+        }
+        if (pass == 1 && query_key_at_begin && i == 0) {
+          m.prefix_score = std::numeric_limits<CharCount2>::max() - 2;
+        }
+        ++query_key;
+        if (query_key == query_key_end) {
+          m.unmatched_len = key.size() - (i + 1);
+          if (is_full_prefix) {
+            m.prefix_score = 0;
+          }
+          return;
+        }
+      } else {
+        at_word_start = false;
+        is_full_prefix = false;
+      }
     }
   }
 }

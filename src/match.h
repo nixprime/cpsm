@@ -26,6 +26,30 @@
 namespace cpsm {
 
 struct MatchBase {
+  // - By default, prefix_score is the maximum possible value.
+  //
+  // - If all alphanumeric characters in the rightmost path component of the
+  // query matched in the rightmost path component of the item, prefix_score is
+  // instead the maximum possible value - 1.
+  //
+  // - If, in addition, the first character in the rightmost path component of
+  // the query matched the first character in the rightmost path component of
+  // the item, prefix_score is instead the maximum possible value - 2.
+  //
+  // - If, in addition, all alphanumeric characters in the rightmost path
+  // component of the query matched in a prefix of a word in the rightmost path
+  // component of the item, prefix_score is the sum of the 1-indexed indices of
+  // matched words.
+  //
+  // - If, in addition, all characters in the rightmost path component of the
+  // query matched at the beginning of the rightmost path component of the item,
+  // prefix_score is 0.
+  CharCount2 prefix_score = std::numeric_limits<CharCount2>::max();
+
+  // The number of matched characters at the beginning of the "words" in
+  // rightmost path component of the item.
+  CharCount word_prefix_len = 0;
+
   // Sum of path component indexes (counting from the right) for all item path
   // components containing at least one match, a lower value of which should
   // indicate higher confidence that the matches are correct.
@@ -41,31 +65,11 @@ struct MatchBase {
   // preferred.
   CharCount unmatched_len = 0;
 
-  // The number of consecutive matched characters at the beginning of the
-  // "words" in rightmost path component of the item.
-  CharCount word_prefix_len = 0;
-
-  // True iff the first character of the query matched the first character of
-  // the rightmost path component in the item.
-  enum class PrefixMatch : std::uint8_t {
-    // The first character of the query did not match the first character of
-    // the rightmost path component in the item.
-    NONE,
-    // The first character of the query matched the first character of the
-    // rightmost path component in the item, but the same is not true of all
-    // remaining characters.
-    PARTIAL,
-    // The query matched all of the first characters of the rightmost path
-    // component of the item.
-    FULL,
-  };
-  PrefixMatch prefix_match = PrefixMatch::NONE;
-
   std::string debug_string() const {
-    return str_cat("part_index_sum=", part_index_sum, ", path_distance=",
-                   path_distance, ", unmatched_len=", unmatched_len,
-                   ", word_prefix_len=", word_prefix_len, ", prefix_match=",
-                   int(prefix_match));
+    return str_cat("prefix_score=", prefix_score, ", word_prefix_len=",
+                   word_prefix_len, ", part_index_sum=", part_index_sum,
+                   ", path_distance=", path_distance, ", unmatched_len=",
+                   unmatched_len);
   }
 };
 
@@ -82,8 +86,8 @@ struct Match : public MatchBase {
 // quality).
 template <typename T>
 bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
-  if (lhs.prefix_match != rhs.prefix_match) {
-    return lhs.prefix_match > rhs.prefix_match;
+  if (lhs.prefix_score != rhs.prefix_score) {
+    return lhs.prefix_score < rhs.prefix_score;
   }
   if (lhs.word_prefix_len != rhs.word_prefix_len) {
     return lhs.word_prefix_len > rhs.word_prefix_len;

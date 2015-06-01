@@ -69,12 +69,13 @@ class Matcher {
                   std::vector<char32_t>* buf2) const;
 
   void match_key(std::vector<char32_t> const& key,
-                 std::vector<char32_t>::const_iterator query_key_begin,
+                 std::vector<char32_t>::const_iterator query_key,
                  MatchBase& m) const;
 
   bool match_char(char32_t item, char32_t query) const;
 
   std::vector<char32_t> query_chars_;
+  std::size_t query_key_begin_index_;
   MatcherOpts opts_;
   bool is_case_sensitive_;
   bool require_full_part_;

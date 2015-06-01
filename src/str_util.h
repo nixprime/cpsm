@@ -35,6 +35,9 @@ namespace cpsm {
 //   32767 characters
 typedef std::uint16_t CharCount;
 
+// A type twice the size of CharCount.
+typedef std::uint32_t CharCount2;
+
 inline void str_cat_impl(std::stringstream& ss) {}
 
 template <typename T, typename... Args>
