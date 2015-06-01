@@ -59,11 +59,11 @@ std::vector<T*> match(std::string const& query, std::vector<T>& items,
     threads.emplace_back(
         [query, &items, f, opts, start_item, end_item, &matches]() {
           cpsm::Matcher matcher(std::move(query), std::move(opts));
-          std::vector<char32_t> buf;
+          std::vector<char32_t> buf, buf2;
           for (std::size_t i = start_item; i < end_item; i++) {
             T& item = items[i];
             Match<T> m(item);
-            if (matcher.match(f(item), m, &buf)) {
+            if (matcher.match(f(item), m, &buf, &buf2)) {
               matches.emplace_back(std::move(m));
             }
           }

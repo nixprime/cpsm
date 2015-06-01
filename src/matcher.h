@@ -53,9 +53,9 @@ class Matcher {
   // given match object with information about the match and returns true.
   // Otherwise returns false.
   //
-  // If buf is not null, it will be used as a temporary buffer. Clients
-  // performing many matches can improve a performance by reusing a single
-  // buffer for each match.
+  // If buf and buf2 are not null, they will be used as temporary buffers.
+  // Clients performing many matches can improve performance by reusing buffers
+  // between matches.
   template <typename T>
   bool match(boost::string_ref const item, Match<T>& m,
              std::vector<char32_t>* const buf = nullptr,
