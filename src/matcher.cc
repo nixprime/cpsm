@@ -91,6 +91,9 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
   } else {
     item_parts.push_back(item);
   }
+  if (!item_parts.empty()) {
+    m.unmatched_len = item_parts.back().size();
+  }
 
   if (query_chars_.empty()) {
     return true;
@@ -157,7 +160,6 @@ void Matcher::match_key(std::vector<char32_t> const& key,
                         MatchBase& m) const {
   auto const query_key_end = query_chars_.cend();
   if (query_key == query_key_end) {
-    m.unmatched_len = key.size();
     return;
   }
   bool const query_key_at_begin =

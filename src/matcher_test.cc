@@ -43,7 +43,7 @@ void test_match_order() {
   std::vector<std::string> items({
       "barfoo", "fbar", "foo/bar", "foo/fbar", "foo/foobar", "foo/foo_bar",
       "foo/foo_bar_test", "foo/foo_test_bar", "foo/FooBar", "foo/abar",
-      "foo/qux",
+      "foo/qux", "foob/ar",
   });
 
   Matcher matcher("fb");
@@ -91,6 +91,7 @@ void test_match_order() {
   assert_matched("foo/FooBar");
   assert_matched("foo/abar");
   assert_not_matched("foo/qux");
+  assert_matched("foob/ar");
 
   auto const match_index = [&](boost::string_ref const item) -> std::size_t {
     return match_it(item) - matches.begin();
@@ -137,9 +138,11 @@ void test_match_order() {
   // "foo/bar" should rank below all of the above since it breaks the match
   // across multiple path components.
   assert_better_match("foo/foobar", "foo/bar");
-  // "foo/abar" should rank lowest since the matched 'b' isn't even at the
-  // beginning of the filename.
+  // "foo/abar" and "foob/ar" should rank lowest since the matched 'b' isn't
+  // even at the beginning of the filename in either case, though it's
+  // unspecified which of the two is higher.
   assert_better_match("foo/bar", "foo/abar");
+  assert_better_match("foo/bar", "foob/ar");
 }
 
 }  // namespace cpsm
