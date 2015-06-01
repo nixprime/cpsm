@@ -72,12 +72,12 @@ void test_match_order() {
                            -> bool { return match_it(item) != matches.end(); };
   auto const assert_matched = [&](boost::string_ref const item) {
     if (!matched(item)) {
-      throw TestAssertionFailure("incorrectly matched '", item, "'");
+      throw TestAssertionFailure("incorrectly failed to match '", item, "'");
     }
   };
   auto const assert_not_matched = [&](boost::string_ref const item) {
     if (matched(item)) {
-      throw TestAssertionFailure("incorrectly failed to match '", item, "'");
+      throw TestAssertionFailure("incorrectly matched '", item, "'");
     }
   };
   assert_not_matched("barfoo");
