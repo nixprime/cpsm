@@ -210,7 +210,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                       std::pop_heap(matches.begin(), matches.end());
                       unmatched_objs.emplace_back(
                           std::move(matches.back().item.second));
-                      matches.resize(limit);
+                      matches.pop_back();
                     }
                   }
                 } else {
