@@ -16,6 +16,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <algorithm>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -158,6 +159,12 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                   unmatched_objs.clear();
                 });
 
+            // If a limit exists, each thread should only keep that many
+            // matches.
+            if (limit) {
+              matches.reserve(limit + 1);
+            }
+
             std::vector<char32_t> buf, buf2;
             while (true) {
               {
@@ -187,12 +194,6 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                 }
               }
               if (items.empty()) {
-                // Do pre-sorting and limiting if there's a limit to decrease
-                // the amount of work that has to be done in the parent
-                // thread.
-                if (limit) {
-                  sort_limit(matches, limit);
-                }
                 return;
               }
               for (auto& item : items) {
@@ -203,6 +204,15 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                 cpsm::Match<Item> m(std::move(item));
                 if (matcher.match(item_str, m, &buf, &buf2)) {
                   matches.emplace_back(std::move(m));
+                  if (limit) {
+                    std::push_heap(matches.begin(), matches.end());
+                    if (matches.size() > limit) {
+                      std::pop_heap(matches.begin(), matches.end());
+                      unmatched_objs.emplace_back(
+                          std::move(matches.back().item.second));
+                      matches.resize(limit);
+                    }
+                  }
                 } else {
                   unmatched_objs.emplace_back(std::move(m.item.second));
                 }

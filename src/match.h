@@ -115,6 +115,18 @@ bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
 }
 
 template <typename T>
+void swap(Match<T>& x, Match<T>& y) {
+  using std::swap;
+  swap(x.prefix_score, y.prefix_score);
+  swap(x.word_prefix_len, y.word_prefix_len);
+  swap(x.part_index_sum, y.part_index_sum);
+  swap(x.cur_file_prefix_len, y.cur_file_prefix_len);
+  swap(x.path_distance, y.path_distance);
+  swap(x.unmatched_len, y.unmatched_len);
+  swap(x.item, y.item);
+}
+
+template <typename T>
 void sort_limit(std::vector<T>& vec,
                 typename std::vector<T>::size_type const limit = 0) {
   if (limit && limit < vec.size()) {
