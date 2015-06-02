@@ -17,8 +17,6 @@
 
 from __future__ import print_function
 
-import time
-
 import cpsm
 import linuxclock
 
@@ -48755,18 +48753,10 @@ ITEMS = [
     "firmware/mts_cdma.fw.ihex",
 ]
 
-ITERATIONS = 30
+QUERIES = ("", "s", "si", "sig", "sign", "signa", "signal")
 
 LIMIT = 10
 
-if __name__ == "__main__":
-    for query in ("", "s", "si", "sig", "sign", "signa", "signal"):
-        times = []
-        for _ in xrange(ITERATIONS):
-            start = linuxclock.monotonic()
-            results = cpsm.ctrlp_match(ITEMS, query, limit=LIMIT, ispath=True)
-            finish = linuxclock.monotonic()
-            times.append(finish - start)
-        print("Query '%s': avg time %fs, min time %fs, results: [%s]" % (
-                query, sum(times) / len(times), min(times),
-                ", ".join("'%s'" % r for r in results)))
+MATCH_MODE = "full-line"
+
+DEFAULT_ITERATIONS = 30
