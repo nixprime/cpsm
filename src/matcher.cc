@@ -29,15 +29,14 @@ namespace cpsm {
 
 Matcher::Matcher(boost::string_ref const query, MatcherOpts opts)
     : opts_(std::move(opts)) {
-  decompose_utf8_string(query, query_chars_);
+  decompose_utf8_string(query, query_);
   if (opts_.is_path) {
     // Store the index of the first character after the rightmost path
     // separator in the query. (Store an index rather than an iterator to keep
     // Matcher copyable/moveable.)
     query_key_begin_index_ =
-        std::find(query_chars_.crbegin(), query_chars_.crend(),
-                  path_separator()).base() -
-        query_chars_.cbegin();
+        std::find(query_.crbegin(), query_.crend(), path_separator()).base() -
+        query_.cbegin();
     switch (opts_.query_path_mode) {
       case MatcherOpts::QueryPathMode::NORMAL:
         require_full_part_ = false;
@@ -57,17 +56,9 @@ Matcher::Matcher(boost::string_ref const query, MatcherOpts opts)
 
   // Queries are smartcased (case-sensitive only if any uppercase appears in the
   // query).
-  is_case_sensitive_ =
-      std::any_of(query_chars_.begin(), query_chars_.end(), is_uppercase);
+  is_case_sensitive_ = std::any_of(query_.begin(), query_.end(), is_uppercase);
 
   cur_file_parts_ = path_components_of(opts_.cur_file);
-  // Keeping the filename in cur_file_parts_ causes the path distance metric to
-  // favor the currently open file. While we don't want to exclude the
-  // currently open file from being matched, it shouldn't be favored over its
-  // siblings on path distance.
-  if (!cur_file_parts_.empty()) {
-    cur_file_parts_.pop_back();
-  }
 }
 
 bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
@@ -87,7 +78,6 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
   std::vector<boost::string_ref> item_parts;
   if (opts_.is_path) {
     item_parts = path_components_of(item);
-    m.path_distance = path_distance_between(cur_file_parts_, item_parts);
   } else {
     item_parts.push_back(item);
   }
@@ -95,15 +85,16 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     m.unmatched_len = item_parts.back().size();
   }
 
-  if (query_chars_.empty()) {
+  if (query_.empty()) {
+    match_path(item_parts, m);
     return true;
   }
 
   // Since for paths (the common case) we prefer rightmost path components, we
   // scan path components right-to-left.
-  auto query_it = query_chars_.crbegin();
-  auto const query_end = query_chars_.crend();
-  auto query_key_begin = query_chars_.cend();
+  auto query_it = query_.crbegin();
+  auto const query_end = query_.crend();
+  auto query_key_begin = query_.cend();
   // Index into item_parts, counting from the right.
   CharCount part_index = 0;
   for (boost::string_ref const item_part :
@@ -149,22 +140,37 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     return false;
   }
 
+  // Fill path match data.
+  match_path(item_parts, m);
+
   // Now do more refined matching on the key (the rightmost path component of
   // the item for a path match, and just the full item otherwise).
   match_key(*key_chars, query_key_begin, m);
   return true;
 }
 
+void Matcher::match_path(std::vector<boost::string_ref> const& item_parts,
+                         MatchBase& m) const {
+  if (!opts_.is_path) {
+    return;
+  }
+  m.path_distance = path_distance_between(cur_file_parts_, item_parts);
+  if (!cur_file_parts_.empty() && !item_parts.empty()) {
+    m.cur_file_prefix_len =
+        common_prefix(cur_file_parts_.back(), item_parts.back());
+  }
+}
+
 void Matcher::match_key(std::vector<char32_t> const& key,
                         std::vector<char32_t>::const_iterator query_key,
                         MatchBase& m) const {
-  auto const query_key_end = query_chars_.cend();
+  auto const query_key_end = query_.cend();
   if (query_key == query_key_end) {
     return;
   }
   bool const query_key_at_begin =
-      (query_key == (query_chars_.cbegin() + query_key_begin_index_));
-  // key can't be empty since [query_key, query_chars_.end()) is non-empty.
+      (query_key == (query_.cbegin() + query_key_begin_index_));
+  // key can't be empty since [query_key, query_.end()) is non-empty.
   const auto is_word_prefix = [&](std::size_t const i) -> bool {
     if (i == 0) {
       return true;

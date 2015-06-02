@@ -68,13 +68,16 @@ class Matcher {
                   std::vector<char32_t>* buf,
                   std::vector<char32_t>* buf2) const;
 
+  void match_path(std::vector<boost::string_ref> const& item_parts,
+                  MatchBase& m) const;
+
   void match_key(std::vector<char32_t> const& key,
                  std::vector<char32_t>::const_iterator query_key,
                  MatchBase& m) const;
 
   bool match_char(char32_t item, char32_t query) const;
 
-  std::vector<char32_t> query_chars_;
+  std::vector<char32_t> query_;
   std::size_t query_key_begin_index_;
   MatcherOpts opts_;
   bool is_case_sensitive_;

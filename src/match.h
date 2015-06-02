@@ -55,6 +55,11 @@ struct MatchBase {
   // indicate higher confidence that the matches are correct.
   CharCount part_index_sum = 0;
 
+  // The number of bytes that are shared between the beginning of the rightmost
+  // path component of the match and the rightmost path component of the
+  // current file.
+  CharCount cur_file_prefix_len = 0;
+
   // The number of path components that must be traversed between the query and
   // item paths.
   CharCount path_distance = 0;
@@ -68,6 +73,7 @@ struct MatchBase {
   std::string debug_string() const {
     return str_cat("prefix_score=", prefix_score, ", word_prefix_len=",
                    word_prefix_len, ", part_index_sum=", part_index_sum,
+                   ", cur_file_prefix_len=", cur_file_prefix_len,
                    ", path_distance=", path_distance, ", unmatched_len=",
                    unmatched_len);
   }
@@ -94,6 +100,9 @@ bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
   }
   if (lhs.part_index_sum != rhs.part_index_sum) {
     return lhs.part_index_sum < rhs.part_index_sum;
+  }
+  if (lhs.cur_file_prefix_len != rhs.cur_file_prefix_len) {
+    return lhs.cur_file_prefix_len > rhs.cur_file_prefix_len;
   }
   if (lhs.path_distance != rhs.path_distance) {
     return lhs.path_distance < rhs.path_distance;

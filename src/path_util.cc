@@ -15,8 +15,6 @@
 
 #include "path_util.h"
 
-#include <algorithm>
-
 // TODO: Support non-Unix non-UTF-8 paths.
 
 namespace cpsm {
@@ -47,14 +45,7 @@ std::vector<boost::string_ref> path_components_of(boost::string_ref path) {
 
 CharCount path_distance_between(std::vector<boost::string_ref> const& x,
                                 std::vector<boost::string_ref> const& y) {
-  auto const end = std::min(x.size(), y.size());
-  CharCount common_ancestors;
-  for (common_ancestors = 0; common_ancestors < end; common_ancestors++) {
-    if (x[common_ancestors] != y[common_ancestors]) {
-      break;
-    }
-  }
-  return x.size() + y.size() - (2 * common_ancestors);
+  return x.size() + y.size() - (2 * common_prefix(x, y));
 }
 
 }  // namespace cpsm
