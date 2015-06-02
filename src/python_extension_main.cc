@@ -150,6 +150,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
             std::vector<Item> items;
             items.reserve(items_per_batch);
             std::vector<PyObjectPtr> unmatched_objs;
+            unmatched_objs.reserve(items_per_batch);
             // Ensure that unmatched PyObjects are released with items_mu held,
             // even if an exception is thrown.
             auto release_unmatched_objs =
