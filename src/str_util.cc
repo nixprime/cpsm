@@ -13,13 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "str_util.h"
+
 #if CPSM_CONFIG_ICU
 #include <unicode/uchar.h>
 #endif
 
-#include "str_util.h"
+#include <utility>
 
 namespace cpsm {
+
+namespace {
 
 void decompose_utf8_string(boost::string_ref str,
                            std::vector<char32_t>& chars) {
@@ -94,29 +98,54 @@ void decompose_utf8_string(boost::string_ref str,
   }
 }
 
+}  // namespace
+
+StringHandler::StringHandler(StringHandlerOpts opts) : opts_(std::move(opts)) {
+#if !CPSM_CONFIG_ICU
+  if (opts_.unicode) {
+    throw Error("cpsm built without Unicode support");
+  }
+#endif
+}
+
+void StringHandler::decompose(boost::string_ref const str,
+                              std::vector<char32_t>& chars) const {
+  if (opts_.unicode) {
+    decompose_utf8_string(str, chars);
+  } else {
+    chars.reserve(str.size());
+    for (char const c : str) {
+      chars.push_back(c);
+    }
+  }
+}
+
+bool StringHandler::is_alphanumeric(char32_t const c) const {
 #if CPSM_CONFIG_ICU
-
-bool is_alphanumeric(char32_t const c) {
-  return u_hasBinaryProperty(c, UCHAR_POSIX_ALNUM);
-}
-
-bool is_uppercase(char32_t const c) {
-  return u_hasBinaryProperty(c, UCHAR_UPPERCASE);
-}
-
-char32_t to_lowercase(char32_t const c) { return u_tolower(c); }
-
-#else  // CPSM_CONFIG_ICU
-
-bool is_alphanumeric(char32_t const c) {
+  if (opts_.unicode) {
+    return u_hasBinaryProperty(c, UCHAR_POSIX_ALNUM);
+  }
+#endif
   return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
          (c >= 'A' && c <= 'Z');
 }
 
-bool is_uppercase(char32_t const c) { return c >= 'A' && c <= 'Z'; }
+bool StringHandler::is_uppercase(char32_t const c) const {
+#if CPSM_CONFIG_ICU
+  if (opts_.unicode) {
+    return u_hasBinaryProperty(c, UCHAR_UPPERCASE);
+  }
+#endif
+  return c >= 'A' && c <= 'Z';
+}
 
-char32_t to_lowercase(char32_t const c) { return c + ('a' - 'A'); }
-
-#endif  // CPSM_CONFIG_ICU
+char32_t StringHandler::to_lowercase(char32_t const c) const {
+#if CPSM_CONFIG_ICU
+  if (opts_.unicode) {
+    return u_tolower(c);
+  }
+#endif
+  return c + ('a' - 'A');
+}
 
 }  // namespace cpsm

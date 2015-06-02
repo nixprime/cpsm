@@ -76,20 +76,35 @@ inline std::string copy_string_ref(boost::string_ref const sref) {
   return std::string(sref.data(), sref.size());
 }
 
-// Splits a UTF-8-encoded string into code points and append them to the given
-// vector. If the string is not a valid UTF-8 encoded string, invalid bytes are
-// are replaced by the invalid code point 0xdc00+(byte). (This is so that a
-// match can still be attempted.)
-void decompose_utf8_string(boost::string_ref str, std::vector<char32_t>& chars);
+struct StringHandlerOpts {
+  bool unicode = false;
+};
 
-// Returns true if the given code point represents a letter or number.
-bool is_alphanumeric(char32_t c);
+class StringHandler final {
+ public:
+  explicit StringHandler(StringHandlerOpts opts = StringHandlerOpts());
 
-// Returns true if the given code point represents a uppercase letter.
-bool is_uppercase(char32_t c);
+  // If opts.unicode is false, appends each byte in the given string to the
+  // given vector.
+  //
+  // If opts.unicode is true, attempts to parse the given string as UTF-8,
+  // appending each code point in the string to the given vector. Non-UTF-8
+  // bytes are appended to the given vector as the invalid code point
+  // 0xdc00+(byte) so that a match can still be attempted.
+  void decompose(boost::string_ref str, std::vector<char32_t>& chars) const;
 
-// Returns the lowercased version of c. c must be an uppercase letter.
-char32_t to_lowercase(char32_t c);
+  // Returns true if the given code point represents a letter or number.
+  bool is_alphanumeric(char32_t c) const;
+
+  // Returns true if the given code point represents an uppercase letter.
+  bool is_uppercase(char32_t c) const;
+
+  // Returns the lowercase version of c. c must be an uppercase letter.
+  char32_t to_lowercase(char32_t c) const;
+
+ private:
+  StringHandlerOpts opts_;
+};
 
 }  // namespace cpsm
 

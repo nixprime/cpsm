@@ -36,7 +36,7 @@ if __name__ == "__main__":
         for _ in xrange(args.iterations):
             start = linuxclock.monotonic()
             results = cpsm.ctrlp_match(bench.ITEMS, query, limit=bench.LIMIT,
-                                       ispath=True, nr_threads=args.threads)
+                                       ispath=True, max_threads=args.threads)
             finish = linuxclock.monotonic()
             times.append(finish - start)
         print("Query '%s': avg time %fs, results: [%s]" % (

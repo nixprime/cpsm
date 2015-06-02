@@ -86,7 +86,8 @@ extern "C" {
 static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                                   PyObject* kwargs) {
   static char const* kwlist[] = {"items",  "query",  "limit", "mmode",
-                                 "ispath", "crfile", "nr_threads", nullptr};
+                                 "ispath", "crfile", "max_threads", "unicode",
+                                 nullptr};
   PyObject* items_obj;
   char const* query_data;
   Py_ssize_t query_size;
@@ -96,11 +97,13 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
   int is_path = 0;
   char const* cur_file_data = nullptr;
   Py_ssize_t cur_file_size = 0;
-  int nr_threads_int = 0;
+  int max_threads_int = 0;
+  int unicode = 0;
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwargs, "Os#|is#is#i", const_cast<char**>(kwlist), &items_obj,
+          args, kwargs, "Os#|is#is#ii", const_cast<char**>(kwlist), &items_obj,
           &query_data, &query_size, &limit_int, &mmode_data, &mmode_size,
-          &is_path, &cur_file_data, &cur_file_size, &nr_threads_int)) {
+          &is_path, &cur_file_data, &cur_file_size, &max_threads_int,
+          &unicode)) {
     return nullptr;
   }
 
@@ -113,12 +116,15 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     cpsm::MatcherOpts mopts;
     mopts.cur_file = std::string(cur_file_data, cur_file_size);
     mopts.is_path = is_path;
-    cpsm::Matcher matcher(std::move(query), std::move(mopts));
+    cpsm::StringHandlerOpts sopts;
+    sopts.unicode = unicode;
+    cpsm::Matcher matcher(std::move(query), std::move(mopts),
+                          cpsm::StringHandler(sopts));
     auto item_substr_fn = cpsm::match_mode_item_substr_fn(
         boost::string_ref(mmode_data, mmode_size));
     std::size_t const limit = (limit_int >= 0) ? std::size_t(limit_int) : 0;
     unsigned int const max_threads =
-        (nr_threads_int >= 0) ? static_cast<unsigned int>(nr_threads_int) : 0;
+        (max_threads_int >= 0) ? static_cast<unsigned int>(max_threads_int) : 0;
 
     unsigned int nr_threads;
     std::size_t items_per_batch;

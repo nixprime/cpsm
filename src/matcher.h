@@ -45,9 +45,10 @@ struct MatcherOpts {
   QueryPathMode query_path_mode = QueryPathMode::AUTO;
 };
 
-class Matcher {
+class Matcher final {
  public:
-  explicit Matcher(boost::string_ref query, MatcherOpts opts = MatcherOpts());
+  explicit Matcher(boost::string_ref query, MatcherOpts opts = MatcherOpts(),
+                   StringHandler strings = StringHandler());
 
   // If the query represented by this matcher matches the given item, fills the
   // given match object with information about the match and returns true.
@@ -77,9 +78,10 @@ class Matcher {
 
   bool match_char(char32_t item, char32_t query) const;
 
+  MatcherOpts opts_;
+  StringHandler strings_;
   std::vector<char32_t> query_;
   std::size_t query_key_begin_index_;
-  MatcherOpts opts_;
   bool is_case_sensitive_;
   bool require_full_part_;
   std::vector<boost::string_ref> cur_file_parts_;

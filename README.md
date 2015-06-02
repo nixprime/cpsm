@@ -35,6 +35,25 @@ Installation
 
    to your `vimrc`.
 
+Options
+-------
+
+- By default, cpsm will automatically detect the number of matcher threads
+  based on the available hardware concurrency. To limit the number of threads
+  that cpsm can use, add
+
+        let g:cpsm_max_threads = (maximum number of threads)
+
+  to your .vimrc.
+
+- To enable Unicode support, add
+
+        let g:cpsm_unicode = 1
+
+  to your .vimrc. Unicode support is currently very limited, and consists
+  mostly of parsing input strings as UTF-8 and handling the case of non-ASCII
+  letters correctly.
+
 Algorithm
 ---------
 

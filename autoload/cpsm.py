@@ -28,7 +28,9 @@ def ctrlp_match():
                                limit=int(vim.eval("a:limit")),
                                mmode=vim.eval("a:mmode"),
                                ispath=int(vim.eval("a:ispath")),
-                               crfile=vim.eval("a:crfile"))
+                               crfile=vim.eval("a:crfile"),
+                               max_threads=int(vim.eval("g:cpsm_max_threads")),
+                               unicode=int(vim.eval("g:cpsm_unicode")))
     # Escape backslashes and ".
     vim.command("let s:results = [%s]" % ",".join(
             '"%s"' % r.replace("\\", "\\\\").replace('"', '\\"')

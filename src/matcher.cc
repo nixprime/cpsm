@@ -27,9 +27,10 @@
 
 namespace cpsm {
 
-Matcher::Matcher(boost::string_ref const query, MatcherOpts opts)
-    : opts_(std::move(opts)) {
-  decompose_utf8_string(query, query_);
+Matcher::Matcher(boost::string_ref const query, MatcherOpts opts,
+                 StringHandler strings)
+    : opts_(std::move(opts)), strings_(std::move(strings)) {
+  strings_.decompose(query, query_);
   if (opts_.is_path) {
     // Store the index of the first character after the rightmost path
     // separator in the query. (Store an index rather than an iterator to keep
@@ -56,24 +57,22 @@ Matcher::Matcher(boost::string_ref const query, MatcherOpts opts)
 
   // Queries are smartcased (case-sensitive only if any uppercase appears in the
   // query).
-  is_case_sensitive_ = std::any_of(query_.begin(), query_.end(), is_uppercase);
+  is_case_sensitive_ =
+      std::any_of(query_.begin(), query_.end(),
+                  [&](char32_t const c) { return strings_.is_uppercase(c); });
 
   cur_file_parts_ = path_components_of(opts_.cur_file);
 }
 
 bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
-                         std::vector<char32_t>* key_chars,
-                         std::vector<char32_t>* temp_chars) const {
+                         std::vector<char32_t>* const buf,
+                         std::vector<char32_t>* const buf2) const {
   m = MatchBase();
 
   std::vector<char32_t> key_chars_local;
-  if (!key_chars) {
-    key_chars = &key_chars_local;
-  }
+  std::vector<char32_t>& key_chars = buf ? *buf : key_chars_local;
   std::vector<char32_t> temp_chars_local;
-  if (!temp_chars) {
-    temp_chars = &temp_chars_local;
-  }
+  std::vector<char32_t>& temp_chars = buf2 ? *buf2 : temp_chars_local;
 
   std::vector<boost::string_ref> item_parts;
   if (opts_.is_path) {
@@ -103,15 +102,15 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
       break;
     }
 
-    std::vector<char32_t>* const item_part_chars =
+    std::vector<char32_t>& item_part_chars =
         part_index ? temp_chars : key_chars;
-    item_part_chars->clear();
-    decompose_utf8_string(item_part, *item_part_chars);
+    item_part_chars.clear();
+    strings_.decompose(item_part, item_part_chars);
 
     // Since path components are matched right-to-left, query characters must be
     // consumed greedily right-to-left.
     auto query_prev = query_it;
-    for (char32_t const c : boost::adaptors::reverse(*item_part_chars)) {
+    for (char32_t const c : boost::adaptors::reverse(item_part_chars)) {
       if (match_char(c, *query_it)) {
         ++query_it;
         if (query_it == query_end) {
@@ -145,7 +144,7 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
 
   // Now do more refined matching on the key (the rightmost path component of
   // the item for a path match, and just the full item otherwise).
-  match_key(*key_chars, query_key_begin, m);
+  match_key(key_chars, query_key_begin, m);
   return true;
 }
 
@@ -175,10 +174,11 @@ void Matcher::match_key(std::vector<char32_t> const& key,
     if (i == 0) {
       return true;
     }
-    if (is_alphanumeric(key[i]) && !is_alphanumeric(key[i - 1])) {
+    if (strings_.is_alphanumeric(key[i]) &&
+        !strings_.is_alphanumeric(key[i - 1])) {
       return true;
     }
-    if (is_uppercase(key[i]) && !is_uppercase(key[i - 1])) {
+    if (strings_.is_uppercase(key[i]) && !strings_.is_uppercase(key[i - 1])) {
       return true;
     }
     return false;
@@ -213,7 +213,7 @@ void Matcher::match_key(std::vector<char32_t> const& key,
         at_word_start = true;
         word_matched = false;
       }
-      if (pass == 0 && is_alphanumeric(*query_key) && !at_word_start) {
+      if (pass == 0 && strings_.is_alphanumeric(*query_key) && !at_word_start) {
         is_full_prefix = false;
         continue;
       }
@@ -249,8 +249,8 @@ bool Matcher::match_char(char32_t item, char32_t const query) const {
     // The query must not contain any uppercase letters since otherwise the
     // query would be case-sensitive, so just force all uppercase characters to
     // lowercase.
-    if (is_uppercase(item)) {
-      item = to_lowercase(item);
+    if (strings_.is_uppercase(item)) {
+      item = strings_.to_lowercase(item);
     }
   }
   return item == query;

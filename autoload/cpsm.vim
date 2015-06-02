@@ -21,3 +21,7 @@ function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
   py ctrlp_match()
   return s:results
 endfunction
+
+" Default settings
+let g:cpsm_max_threads = 0
+let g:cpsm_unicode = 0
