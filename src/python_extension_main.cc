@@ -72,7 +72,7 @@ void get_concurrency_params(unsigned int const max_threads,
   // contention on the lock that guards the Python API), so it should scale
   // linearly with the number of other threads. The coefficient is determined
   // empirically.
-  constexpr std::size_t BATCH_SIZE_PER_THREAD = 32;
+  constexpr std::size_t BATCH_SIZE_PER_THREAD = 64;
   batch_size = BATCH_SIZE_PER_THREAD * (nr_threads - 1);
   if (!batch_size) {
     // nr_threads == 1, so batch_size is fairly arbitrary.
