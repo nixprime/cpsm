@@ -154,7 +154,10 @@ void Matcher::match_path(std::vector<boost::string_ref> const& item_parts,
     return;
   }
   m.path_distance = path_distance_between(cur_file_parts_, item_parts);
-  if (!cur_file_parts_.empty() && !item_parts.empty()) {
+  // We don't want to exclude cur_file as a match, but we also don't want it
+  // to be the top match, so force cur_file_prefix_len to 0 for cur_file (i.e.
+  // if path_distance is 0).
+  if (m.path_distance != 0 && !cur_file_parts_.empty() && !item_parts.empty()) {
     m.cur_file_prefix_len =
         common_prefix(cur_file_parts_.back(), item_parts.back());
   }
