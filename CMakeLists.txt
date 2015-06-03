@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 2.8.3)
+
+project(cpsm)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_SOURCE_DIR}/src)
+list(APPEND CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
+
+set(Boost_USE_MULTITHREADED ON)
+find_package(Boost REQUIRED COMPONENTS program_options)
+include_directories(${Boost_INCLUDE_DIRS})
+
+find_package(ICU)
+if(ICU_FOUND)
+  include_directories(${ICU_INCLUDE_DIRS})
+  add_definitions(-DCPSM_CONFIG_ICU=1)
+endif()
+
+find_package(PythonLibs REQUIRED)
+include_directories(${PYTHON_INCLUDE_DIRS})
+
+add_library(cpsm_core src/matcher.cc src/path_util.cc src/str_util.cc)
+target_link_libraries(cpsm_core ${Boost_LIBRARIES})
+if(ICU_FOUND)
+  target_link_libraries(cpsm_core ${ICU_LIBRARIES})
+endif()
+set_target_properties(cpsm_core PROPERTIES COMPILE_FLAGS "-fPIC")
+
+add_library(cpsm_py SHARED src/ctrlp_util.cc src/python_extension_main.cc)
+target_link_libraries(cpsm_py cpsm_core ${PYTHON_LIBRARY})
+set_target_properties(cpsm_py PROPERTIES PREFIX "" SUFFIX ".so")
+install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/autoload)
+install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/test)
+
+add_executable(matcher_test src/matcher_test.cc)
+target_link_libraries(matcher_test cpsm_core)
+install(TARGETS matcher_test DESTINATION ${PROJECT_SOURCE_DIR}/test)

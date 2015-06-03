@@ -262,11 +262,11 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
   }
 }
 
-static PyMethodDef cpsm_methods[] = {
+static PyMethodDef cpsm_py_methods[] = {
     {"ctrlp_match", reinterpret_cast<PyCFunction>(cpsm_ctrlp_match),
      METH_VARARGS | METH_KEYWORDS,
      "Match strings with a CtrlP-compatible interface"},
     {nullptr, nullptr, 0, nullptr}};
 
-PyMODINIT_FUNC initcpsm() { Py_InitModule("cpsm", cpsm_methods); }
+PyMODINIT_FUNC initcpsm_py() { Py_InitModule("cpsm_py", cpsm_py_methods); }
 }

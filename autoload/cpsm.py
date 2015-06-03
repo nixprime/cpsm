@@ -13,24 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os.path
 import sys
 import vim
 
 script_dir = vim.eval("s:script_dir")
-python_dir = os.path.join(script_dir, "..", "python")
-sys.path.append(python_dir)
-import cpsm
+sys.path.append(script_dir)
+import cpsm_py
 
 def ctrlp_match():
     # TODO: a:regex is unimplemented.
-    results = cpsm.ctrlp_match(vim.eval("a:items"), vim.eval("a:str"),
-                               limit=int(vim.eval("a:limit")),
-                               mmode=vim.eval("a:mmode"),
-                               ispath=int(vim.eval("a:ispath")),
-                               crfile=vim.eval("a:crfile"),
-                               max_threads=int(vim.eval("g:cpsm_max_threads")),
-                               unicode=int(vim.eval("g:cpsm_unicode")))
+    results = cpsm_py.ctrlp_match(
+            vim.eval("a:items"), vim.eval("a:str"),
+            limit=int(vim.eval("a:limit")), mmode=vim.eval("a:mmode"),
+            ispath=int(vim.eval("a:ispath")), crfile=vim.eval("a:crfile"),
+            max_threads=int(vim.eval("g:cpsm_max_threads")),
+            unicode=int(vim.eval("g:cpsm_unicode")))
     # Escape backslashes and ".
     vim.command("let s:results = [%s]" % ",".join(
             '"%s"' % r.replace("\\", "\\\\").replace('"', '\\"')

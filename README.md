@@ -8,13 +8,15 @@ Requirements
 
 - Vim 7.4, compiled with the `+python` flag.
 
-- Python headers (Ubuntu: package `python-dev`).
-
 - A C++ compiler supporting C++11.
 
 - Boost (Ubuntu: package `libboost-all-dev`).
 
-- ICU (Ubuntu: package `libicu-dev`).
+- CMake (Ubuntu: package `cmake`).
+
+- Python headers (Ubuntu: package `python-dev`).
+
+- Optional, required for Unicode support: ICU (Ubuntu: package `libicu-dev`).
 
 Installation
 ------------
