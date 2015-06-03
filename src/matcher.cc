@@ -164,14 +164,12 @@ void Matcher::match_path(std::vector<boost::string_ref> const& item_parts,
 }
 
 void Matcher::match_key(std::vector<char32_t> const& key,
-                        std::vector<char32_t>::const_iterator query_key,
+                        std::vector<char32_t>::const_iterator const query_key,
                         MatchBase& m) const {
   auto const query_key_end = query_.cend();
   if (query_key == query_key_end) {
     return;
   }
-  bool const query_key_at_begin =
-      (query_key == (query_.cbegin() + query_key_begin_index_));
   // key can't be empty since [query_key, query_.end()) is non-empty.
   const auto is_word_prefix = [&](std::size_t const i) -> bool {
     if (i == 0) {
@@ -191,57 +189,53 @@ void Matcher::match_key(std::vector<char32_t> const& key,
   // non-alphanumeric characters to try and get a word prefix-only match. In
   // the second pass, match greedily.
   for (int pass = 0; pass < 2; pass++) {
+    auto query_it = query_key;
     CharCount word_index = 0;
+    CharCount2 word_index_sum = 0;
+    CharCount word_prefix_len = 0;
+    bool is_partial_prefix = false;
     bool at_word_start = true;
     bool word_matched = false;
-    bool is_full_prefix = query_key_at_begin;
-    m.prefix_score = std::numeric_limits<CharCount2>::max();
-    switch (pass) {
-      case 0:
-        if (query_key_at_begin) {
-          m.prefix_score = 0;
-        }
-        break;
-      case 1:
-        if (query_key_at_begin) {
-          m.prefix_score = std::numeric_limits<CharCount2>::max() - 1;
-        }
-        // Need to reset word_prefix_len after failed first pass.
-        m.word_prefix_len = 0;
-        break;
-    }
     for (std::size_t i = 0; i < key.size(); i++) {
       if (is_word_prefix(i)) {
         word_index++;
         at_word_start = true;
         word_matched = false;
       }
-      if (pass == 0 && strings_.is_alphanumeric(*query_key) && !at_word_start) {
-        is_full_prefix = false;
+      if (pass == 0 && strings_.is_alphanumeric(*query_it) && !at_word_start) {
         continue;
       }
-      if (match_char(key[i], *query_key)) {
+      if (match_char(key[i], *query_it)) {
         if (at_word_start) {
-          m.word_prefix_len++;
+          word_prefix_len++;
         }
-        if (pass == 0 && query_key_at_begin && !word_matched) {
-          m.prefix_score += word_index;
+        if (!word_matched) {
+          word_index_sum += word_index;
           word_matched = true;
         }
-        if (pass == 1 && query_key_at_begin && i == 0) {
-          m.prefix_score = std::numeric_limits<CharCount2>::max() - 2;
+        if (i == 0 && query_it == query_key) {
+          is_partial_prefix = true;
         }
-        ++query_key;
-        if (query_key == query_key_end) {
-          m.unmatched_len = key.size() - (i + 1);
-          if (is_full_prefix) {
+        ++query_it;
+        if (query_it == query_key_end) {
+          auto const query_key_begin = query_.cbegin() + query_key_begin_index_;
+          if (query_key != query_key_begin) {
+            m.prefix_score = std::numeric_limits<CharCount2>::max();
+          } else if ((i + 1) == std::size_t(query_key_end - query_key_begin)) {
             m.prefix_score = 0;
+          } else if (pass == 0) {
+            m.prefix_score = word_index_sum;
+          } else if (is_partial_prefix) {
+            m.prefix_score = std::numeric_limits<CharCount2>::max() - 2;
+          } else {
+            m.prefix_score = std::numeric_limits<CharCount2>::max() - 1;
           }
+          m.word_prefix_len = word_prefix_len;
+          m.unmatched_len = key.size() - (i + 1);
           return;
         }
       } else {
         at_word_start = false;
-        is_full_prefix = false;
       }
     }
   }
