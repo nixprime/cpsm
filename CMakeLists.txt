@@ -4,7 +4,7 @@ project(cpsm)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
 list(APPEND CMAKE_CXX_FLAGS "-std=c++11")
-set(CMAKE_BUILD_TYPE RelWithDebInfo)
+set(CMAKE_BUILD_TYPE Release)
 
 set(Boost_USE_MULTITHREADED ON)
 find_package(Boost REQUIRED COMPONENTS program_options)
