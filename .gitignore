@@ -1,6 +1,8 @@
 # Output directories
 build/
-test/
+
+# Binaries
+*.bin
 
 # Vim
 *[._]s[a-w][a-z]

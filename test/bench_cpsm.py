@@ -20,7 +20,7 @@ from __future__ import print_function
 import argparse
 
 import bench
-import cpsm
+import cpsm_py
 import linuxclock
 
 if __name__ == "__main__":
@@ -35,10 +35,12 @@ if __name__ == "__main__":
         times = []
         for _ in xrange(args.iterations):
             start = linuxclock.monotonic()
-            results = cpsm.ctrlp_match(bench.ITEMS, query, limit=bench.LIMIT,
-                                       ispath=True, max_threads=args.threads)
+            results = cpsm_py.ctrlp_match(bench.ITEMS, query.query,
+                                          limit=bench.LIMIT, ispath=True,
+                                          crfile=query.cur_file,
+                                          max_threads=args.threads)
             finish = linuxclock.monotonic()
             times.append(finish - start)
-        print("Query '%s': avg time %fs, results: [%s]" % (
+        print("%s: avg time %fs, results: [%s]" % (
                 query, sum(times) / len(times),
                 ", ".join("'%s'" % r for r in results)))

@@ -34,8 +34,10 @@ install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/test)
 
 add_executable(cpsm_cli src/cpsm_cli_main.cc)
 target_link_libraries(cpsm_cli cpsm_core)
+set_target_properties(cpsm_cli PROPERTIES PREFIX "" SUFFIX ".bin")
 install(TARGETS cpsm_cli DESTINATION ${PROJECT_SOURCE_DIR}/test)
 
 add_executable(matcher_test src/matcher_test.cc)
 target_link_libraries(matcher_test cpsm_core)
+set_target_properties(matcher_test PROPERTIES PREFIX "" SUFFIX ".bin")
 install(TARGETS matcher_test DESTINATION ${PROJECT_SOURCE_DIR}/test)

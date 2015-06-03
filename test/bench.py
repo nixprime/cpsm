@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
+import collections
 
 import cpsm
 import linuxclock
@@ -48753,7 +48753,20 @@ ITEMS = [
     "firmware/mts_cdma.fw.ihex",
 ]
 
-QUERIES = ("", "s", "si", "sig", "sign", "signa", "signal")
+Query = collections.namedtuple("Query", ["query", "cur_file"])
+
+QUERIES = [
+        Query("", ""),
+        Query("", "mm/memcontrol.c"),
+        Query("", "kernel/signal.c"),
+        Query(".h", "kernel/signal.c"),
+        Query("x86/", "kernel/signal.c"),
+        Query("s", "kernel/signal.c"),
+        Query("sc", "kernel/signal.c"),
+        Query("sch", "kernel/signal.c"),
+        Query("sche", "kernel/signal.c"),
+        Query("sched", "kernel/signal.c"),
+]
 
 LIMIT = 10
 
