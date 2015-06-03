@@ -10,6 +10,12 @@ set(Boost_USE_MULTITHREADED ON)
 find_package(Boost REQUIRED COMPONENTS program_options)
 include_directories(${Boost_INCLUDE_DIRS})
 
+find_package(GooglePerfTools)
+if(GOOGLE_PERFTOOLS_FOUND)
+  include_directories(${GOOGLE_PERFTOOLS_INCLUDE_DIR})
+  add_definitions(-DCPSM_CONFIG_HAVE_GOOGLE_PERFTOOLS=1)
+endif()
+
 find_package(ICU)
 if(ICU_FOUND)
   include_directories(${ICU_INCLUDE_DIRS})
@@ -34,6 +40,9 @@ install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/test)
 
 add_executable(cpsm_cli src/cpsm_cli_main.cc)
 target_link_libraries(cpsm_cli cpsm_core)
+if(GOOGLE_PERFTOOLS_FOUND)
+  target_link_libraries(cpsm_cli profiler)
+endif()
 set_target_properties(cpsm_cli PROPERTIES PREFIX "" SUFFIX ".bin")
 install(TARGETS cpsm_cli DESTINATION ${PROJECT_SOURCE_DIR}/test)
 
