@@ -59,7 +59,7 @@ Installation
 1. Install cpsm using your favorite Vim package manager. For example, with
    [Vundle](http://github.com/gmarik/Vundle.vim), this consists of adding:
 
-       Vundle 'nixprime/cpsm'
+        Vundle 'nixprime/cpsm'
 
    to your `vimrc` and then running `:PluginInstall` from Vim.
 
@@ -68,7 +68,7 @@ Installation
 
 3. Add:
 
-       let g:ctrlp_match_func = {'match': 'cpsm#CtrlPMatch'}
+        let g:ctrlp_match_func = {'match': 'cpsm#CtrlPMatch'}
 
    to your `vimrc`.
 
@@ -79,13 +79,13 @@ Options
   based on the available hardware concurrency. To limit the number of threads
   that cpsm can use, add
 
-       let g:cpsm_max_threads = (maximum number of threads)
+        let g:cpsm_max_threads = (maximum number of threads)
 
   to your .vimrc.
 
 - To enable Unicode support, add
 
-       let g:cpsm_unicode = 1
+        let g:cpsm_unicode = 1
 
   to your .vimrc. Unicode support is currently very limited, and consists
   mostly of parsing input strings as UTF-8 and handling the case of non-ASCII
