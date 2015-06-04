@@ -22,7 +22,7 @@ cpsm is to enable a particular one based on CtrlP:
 
 4. Hit Enter to open the file you wanted in the current window.
 
-To achieve this, cpsm needs to deliver
+To achieve this, cpsm needs to deliver:
 
 - high quality search results (at sufficiently high levels of quality, it's
   possible to enter a short query, hit Enter without needing to look at and
@@ -33,7 +33,7 @@ To achieve this, cpsm needs to deliver
   common switching between files is)
 
 - with as little latency as possible (to support scaling to very large, and
-  especially very deeply nested, code bases with very long pathnames).
+  especially very deeply nested, code bases with very long pathnames)
 
 See the "Performance" section below for both search quality and time
 comparisons to other matchers.
@@ -168,40 +168,15 @@ Performance
 
   - Query "", current file "kernel/signal.c":
 
-    - cpsm: "arch/alpha/kernel/signal.c"; 4.936ms (15.769ms with 1 thread)
-
-    - "signal" is significantly more common (e.g. just about every arch has its
-      own signal.c), so this result is sane, but not likely to be useful.
+    - cpsm: "include/asm-generic/signal.c"; 5.048ms (16.013ms with 1 thread)
 
     - All others: same as above
 
-  - The next two cases simulate a user trying to get to files that are closely
-    related to the currently open file.
-
-  - Query ".h", current file "kernel/signal.c":
-
-    - cpsm: "include/asm-generic/signal.h"; 6.218ms (22.107ms with 1 thread)
-
-    - ctrlp-cmatcher: "fs/ext2/ext2.h"; 22.850ms
-
-    - ctrlp-py-matcher: "mm/slab.h"; 33.533ms
-
-    - ctrlp: "security/selinux/ss/sidtab.h"
-
-    - fzf: "Documentation/scsi/LICENSE.FlashPoint"
-
-    - Without using the current filename, there is nothing the other matchers
-      can do to disambiguate the query. (cpsm doesn't get what I would consider
-      the best match either - "include/linux/signal.h" - but it's impossible to
-      choose between these two results without knowledge of the Linux kernel's
-      source layout. cpsm does pick that file as the second-best match.) fzf's
-      top result seems to be particularly out of whack, since at least the
-      other matchers return a .h file, but this is perhaps understandable given
-      that fzf is the most generic matcher out of the group.
-
-    - cpsm is much faster than either of the other two benchmarkable matchers
-      with multithreading enabled, and competitive with ctrlp-cmatcher when
-      locked to a single thread.
+    - "signal" is a significantly more common prefix; cpsm doesn't get what I
+      would consider the best match ("include/linux/signal.h") but it's
+      impossible to choose between these two results without knowledge of the
+      Linux kernel's source layout. (cpsm does pick that file as the
+      second-best match.)
 
   - Query "x86/", current file "kernel/signal.c":
 
@@ -215,7 +190,8 @@ Performance
 
     - fzf: "Documentation/x86/early-microcode.txt"
 
-    - Similar story to the previous case.
+    - Without using the current filename, there is nothing the other matchers
+      can do to disambiguate the query.
 
   - The next set of cases simulate a user typing progressively more letters in
     a desired file's name ("include/linux/rcupdate.h"), when they happen to be
@@ -232,6 +208,10 @@ Performance
     - ctrlp: "security/keys/encrypted-keys/Makefile"
 
     - fzf: "CREDITS"
+
+    - cpsm is much faster than either of the other two benchmarkable matchers
+      with multithreading enabled, and competitive with ctrlp-cmatcher when
+      locked to a single thread.
 
   - Query "rc", current file "kernel/signal.c":
 

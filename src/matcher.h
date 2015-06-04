@@ -85,6 +85,7 @@ class Matcher final {
   bool is_case_sensitive_;
   bool require_full_part_;
   std::vector<boost::string_ref> cur_file_parts_;
+  boost::string_ref cur_file_key_;
 };
 
 }  // namespace cpsm
