@@ -41,6 +41,5 @@ if __name__ == "__main__":
                                           max_threads=args.threads)
             finish = linuxclock.monotonic()
             times.append(finish - start)
-        print("%s: avg time %fs, results: [%s]" % (
-                query, sum(times) / len(times),
-                ", ".join("'%s'" % r for r in results)))
+        print("%s: avg time %fs, top result: %s" % (
+                query, sum(times) / len(times), results[0]))

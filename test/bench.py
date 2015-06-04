@@ -48759,13 +48759,17 @@ QUERIES = [
         Query("", ""),
         Query("", "mm/memcontrol.c"),
         Query("", "kernel/signal.c"),
-        Query(".h", "kernel/signal.c"),
         Query("x86/", "kernel/signal.c"),
-        Query("s", "kernel/signal.c"),
-        Query("sc", "kernel/signal.c"),
-        Query("sch", "kernel/signal.c"),
-        Query("sche", "kernel/signal.c"),
-        Query("sched", "kernel/signal.c"),
+        Query("r", "kernel/signal.c"),
+        Query("rc", "kernel/signal.c"),
+        Query("rcu", "kernel/signal.c"),
+        Query("rcup", "kernel/signal.c"),
+        Query("rcupd", "kernel/signal.c"),
+        Query("rcupda", "kernel/signal.c"),
+        Query("rcupdat", "kernel/signal.c"),
+        Query("rcupdate", "kernel/signal.c"),
+        Query("rcupdate.", "kernel/signal.c"),
+        Query("rcupdate.h", "kernel/signal.c"),
 ]
 
 LIMIT = 10
