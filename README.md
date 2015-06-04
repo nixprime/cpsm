@@ -133,7 +133,7 @@ Performance
 
   - Query "", current file "":
 
-    - cpsm: "Kbuild"; 4.802 (14.483ms with 1 thread)
+    - cpsm: "Kbuild"; 4.802ms (14.483ms with 1 thread)
 
     - ctrlp: "security/keys/encrypted-keys/Makefile"
 
@@ -199,7 +199,7 @@ Performance
 
   - Query "r", current file "kernel/signal.c":
 
-    - cpsm: "kernel/range.c"; 7.128 (23.512 with 1 thread)
+    - cpsm: "kernel/range.c"; 7.128ms (23.512ms with 1 thread)
 
     - ctrlp-cmatcher: "README"; 19.825ms
 
@@ -215,7 +215,7 @@ Performance
 
   - Query "rc", current file "kernel/signal.c":
 
-    - cpsm: "kernel/rcu/rcu.h"; 7.612ms (26.283 with 1 thread)
+    - cpsm: "kernel/rcu/rcu.h"; 7.612ms (26.283ms with 1 thread)
 
     - ctrlp-cmatcher: "arch/Kconfig"; 24.391ms
 
@@ -229,7 +229,7 @@ Performance
 
   - Query "rcu", current file "kernel/signal.c":
 
-    - cpsm: "kernel/rcu/rcu.h"; 6.328ms (22.575 with 1 thread)
+    - cpsm: "kernel/rcu/rcu.h"; 6.328ms (22.575ms with 1 thread)
 
     - ctrlp-cmatcher: "arch/um/Makefile"; 29.619ms
 
