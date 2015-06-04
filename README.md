@@ -133,7 +133,7 @@ Performance
 
   - Query "", current file "":
 
-    - cpsm: "Kbuild"; 4.978ms (15.653ms with 1 thread)
+    - cpsm: "Kbuild"; 4.802 (14.483ms with 1 thread)
 
     - ctrlp: "security/keys/encrypted-keys/Makefile"
 
@@ -154,7 +154,7 @@ Performance
 
   - Query "", current file "mm/memcontrol.c":
 
-    - cpsm: "include/linux/memcontrol.h"; 4.998ms (15.436ms with 1 thread)
+    - cpsm: "include/linux/memcontrol.h"; 4.683ms (13.964ms with 1 thread)
 
     - All others: same as above
 
@@ -168,7 +168,7 @@ Performance
 
   - Query "", current file "kernel/signal.c":
 
-    - cpsm: "include/asm-generic/signal.c"; 5.048ms (16.013ms with 1 thread)
+    - cpsm: "include/asm-generic/signal.c"; 4.733ms (14.500ms with 1 thread)
 
     - All others: same as above
 
@@ -180,7 +180,7 @@ Performance
 
   - Query "x86/", current file "kernel/signal.c":
 
-    - cpsm: "arch/x86/kernel/signal.c"; 5.749ms (20.884ms with 1 thread)
+    - cpsm: "arch/x86/kernel/signal.c"; 5.762ms (20.883ms with 1 thread)
 
     - ctrlp-cmatcher: "arch/x86/Kbuild"; 25.034ms
 
@@ -199,7 +199,7 @@ Performance
 
   - Query "r", current file "kernel/signal.c":
 
-    - cpsm: "kernel/range.c"; 7.017ms (23.327ms with 1 thread)
+    - cpsm: "kernel/range.c"; 7.128 (23.512 with 1 thread)
 
     - ctrlp-cmatcher: "README"; 19.825ms
 
@@ -215,7 +215,7 @@ Performance
 
   - Query "rc", current file "kernel/signal.c":
 
-    - cpsm: "kernel/rcu/rcu.h"; 7.617ms (26.343ms with 1 thread)
+    - cpsm: "kernel/rcu/rcu.h"; 7.612ms (26.283 with 1 thread)
 
     - ctrlp-cmatcher: "arch/Kconfig"; 24.391ms
 
@@ -229,7 +229,7 @@ Performance
 
   - Query "rcu", current file "kernel/signal.c":
 
-    - cpsm: "kernel/rcu/rcu.h"; 6.291ms (22.392ms with 1 thread)
+    - cpsm: "kernel/rcu/rcu.h"; 6.328ms (22.575 with 1 thread)
 
     - ctrlp-cmatcher: "arch/um/Makefile"; 29.619ms
 
@@ -241,7 +241,7 @@ Performance
 
   - Query "rcup", current file "kernel/signal.c":
 
-    - cpsm: "include/linux/rcupdate.h"; 6.035ms (21.897ms with 1 thread)
+    - cpsm: "include/linux/rcupdate.h"; 6.167ms (22.162ms with 1 thread)
 
     - ctrlp-cmatcher: "kernel/rcu/update.c"; 31.301ms
 

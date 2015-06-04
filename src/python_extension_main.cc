@@ -58,27 +58,35 @@ struct PyObjectDeleter {
 // Reference-owning, self-releasing PyObject smart pointer.
 typedef std::unique_ptr<PyObject, PyObjectDeleter> PyObjectPtr;
 
-void get_concurrency_params(unsigned int const max_threads,
-                            unsigned int& nr_threads, std::size_t& batch_size) {
-  nr_threads = cpsm::Thread::hardware_concurrency();
+unsigned int get_nr_threads(unsigned int const max_threads) {
+  std::size_t nr_threads = cpsm::Thread::hardware_concurrency();
   if (!nr_threads) {
     nr_threads = 1;
   }
   if (max_threads && (nr_threads > max_threads)) {
     nr_threads = max_threads;
   }
-  // Batch size needs to be large enough that processing one batch is at least
-  // long enough for all other threads to collect one batch (to minimize
-  // contention on the lock that guards the Python API), so it should scale
-  // linearly with the number of other threads. The coefficient is determined
-  // empirically.
-  constexpr std::size_t BATCH_SIZE_PER_THREAD = 64;
-  batch_size = BATCH_SIZE_PER_THREAD * (nr_threads - 1);
-  if (!batch_size) {
-    // nr_threads == 1, so batch_size is fairly arbitrary.
-    batch_size = BATCH_SIZE_PER_THREAD;
-  }
+  return nr_threads;
 }
+
+// kBatchSizeBytes is the minimum number of bytes worth of items to read from
+// the Python API before starting matching.
+//
+// Some math indicates that contention on the lock that guards the Python API
+// is avoided on average if
+//
+//   N <= 1 + (U / L)
+//
+// where n is the number of threads, U is the time that a thread spends doing
+// work without holding the lock, and L is the time that a thread requires
+// the lock for. But U/L is independent of batch size. (It is also highly
+// dependent on what happens during a given match.)
+//
+// Hence the batch size is chosen to be large, in order to amortize differences
+// in match times between items and limit ping-ponging of the lock, while still
+// being small enough to hopefully fit in the L1 data cache, even with SMT and
+// overheads taken into account. (Ultimately it's chosen empirically.)
+static constexpr std::size_t kBatchSizeBytes = 8192;
 
 }  // namespace
 
@@ -126,10 +134,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     std::size_t const limit = (limit_int >= 0) ? std::size_t(limit_int) : 0;
     unsigned int const max_threads =
         (max_threads_int >= 0) ? static_cast<unsigned int>(max_threads_int) : 0;
-
-    unsigned int nr_threads;
-    std::size_t items_per_batch;
-    get_concurrency_params(max_threads, nr_threads, items_per_batch);
+    unsigned int const nr_threads = get_nr_threads(max_threads);
 
     PyObjectPtr items_iter(PyObject_GetIter(items_obj));
     if (!items_iter) {
@@ -145,12 +150,10 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     for (unsigned int i = 0; i < nr_threads; i++) {
       auto& matches = thread_matches[i];
       threads.emplace_back(
-          [&matcher, item_substr_fn, limit, items_per_batch, &items_iter,
-           &items_mu, &end_of_python_iter, &have_python_ex, &matches]() {
+          [&matcher, item_substr_fn, limit, &items_iter, &items_mu,
+           &end_of_python_iter, &have_python_ex, &matches]() {
             std::vector<Item> items;
-            items.reserve(items_per_batch);
             std::vector<PyObjectPtr> unmatched_objs;
-            unmatched_objs.reserve(items_per_batch);
             // Ensure that unmatched PyObjects are released with items_mu held,
             // even if an exception is thrown.
             auto release_unmatched_objs =
@@ -177,7 +180,8 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                 if (end_of_python_iter || have_python_ex) {
                   return;
                 }
-                for (std::size_t i = 0; i < items_per_batch; i++) {
+                std::size_t batch_size_bytes = 0;
+                while (batch_size_bytes < kBatchSizeBytes) {
                   PyObjectPtr item_obj(PyIter_Next(items_iter.get()));
                   if (!item_obj) {
                     end_of_python_iter = true;
@@ -192,11 +196,13 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                   }
                   items.emplace_back(boost::string_ref(item_data, item_size),
                                      std::move(item_obj));
+                  batch_size_bytes += item_size;
                 }
               }
               if (items.empty()) {
                 return;
               }
+              unmatched_objs.reserve(items.size());
               for (auto& item : items) {
                 boost::string_ref item_str(item.first);
                 if (item_substr_fn) {
