@@ -29,7 +29,7 @@ if(ICU_FOUND)
   add_definitions(-DCPSM_CONFIG_ICU=1)
 endif()
 
-find_package(PythonLibs REQUIRED)
+find_package(PythonLibs 2.7 REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
 
 find_package(Threads REQUIRED)
