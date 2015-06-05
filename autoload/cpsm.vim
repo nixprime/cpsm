@@ -13,15 +13,23 @@
 " See the License for the specific language governing permissions and
 " limitations under the License.
 
+" Global variables and defaults
+if !exists('g:cpsm_max_threads')
+  let g:cpsm_max_threads = 0
+endif
+if !exists('g:cpsm_unicode')
+  let g:cpsm_unicode = 0
+endif
+
 let s:script_dir = escape(expand('<sfile>:p:h'), '\')
 
 execute 'pyfile ' . s:script_dir . '/cpsm.py'
 
 function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
   py ctrlp_match()
+  call clearmatches()
+  " CtrlP does this match to hide the leading > in results.
+  call matchadd('CtrlPLinePre', '^>')
   return s:results
 endfunction
 
-" Default settings
-let g:cpsm_max_threads = 0
-let g:cpsm_unicode = 0
