@@ -3,10 +3,15 @@ cmake_minimum_required(VERSION 2.8.3)
 project(cpsm)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
-if(CMAKE_COMPILER_IS_GNUCC)
-  list(APPEND CMAKE_CXX_FLAGS "-std=c++11 -Wall")
-endif()
 set(CMAKE_BUILD_TYPE Release)
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang|Intel")
+  list(APPEND CMAKE_CXX_FLAGS "-std=c++11 -Wall")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  # Versions of MSVC that support C++11 at all support it by default, so hope
+  # for the best...
+else()
+  message(FATAL_ERROR "Unknown compiler - don't know how to turn on C++11.")
+endif()
 
 set(Boost_USE_MULTITHREADED ON)
 find_package(Boost REQUIRED COMPONENTS program_options)
