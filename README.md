@@ -168,7 +168,7 @@ Performance
 
   - Query "", current file "kernel/signal.c":
 
-    - cpsm: "include/asm-generic/signal.c"; 4.733ms (14.500ms with 1 thread)
+    - cpsm: "include/asm-generic/signal.h"; 4.733ms (14.500ms with 1 thread)
 
     - All others: same as above
 
@@ -224,8 +224,6 @@ Performance
     - ctrlp: "security/capability.c"
 
     - fzf: "Documentation/circular-buffers.txt"
-
-    - cpsm is now in at least the right ballpark (RCU).
 
   - Query "rcu", current file "kernel/signal.c":
 
