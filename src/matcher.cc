@@ -249,7 +249,7 @@ void Matcher::match_key(
     CharCount word_index = 0;
     CharCount2 word_index_sum = 0;
     CharCount word_prefix_len = 0;
-    bool is_partial_prefix = false;
+    bool start_matched = false;
     bool at_word_start = true;
     bool word_matched = false;
     std::set<CharCount> match_positions_pass;
@@ -270,8 +270,8 @@ void Matcher::match_key(
           word_index_sum += word_index;
           word_matched = true;
         }
-        if (i == 0 && query_it == query_key) {
-          is_partial_prefix = true;
+        if (i == 0) {
+          start_matched = true;
         }
         if (match_positions) {
           CharCount begin = key_char_positions[i];
@@ -285,14 +285,17 @@ void Matcher::match_key(
           auto const query_key_begin = query_.cbegin() + query_key_begin_index_;
           if (query_key != query_key_begin) {
             m.prefix_score = std::numeric_limits<CharCount2>::max();
+            if (start_matched) {
+              m.prefix_score = std::numeric_limits<CharCount2>::max() - 1;
+            }
           } else if ((i + 1) == std::size_t(query_key_end - query_key_begin)) {
             m.prefix_score = 0;
           } else if (pass == 0) {
             m.prefix_score = word_index_sum;
-          } else if (is_partial_prefix) {
-            m.prefix_score = std::numeric_limits<CharCount2>::max() - 2;
+          } else if (start_matched) {
+            m.prefix_score = std::numeric_limits<CharCount2>::max() - 3;
           } else {
-            m.prefix_score = std::numeric_limits<CharCount2>::max() - 1;
+            m.prefix_score = std::numeric_limits<CharCount2>::max() - 2;
           }
           m.word_prefix_len = word_prefix_len;
           m.unmatched_len = key.size() - (i + 1);

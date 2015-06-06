@@ -28,13 +28,18 @@ namespace cpsm {
 struct MatchBase {
   // - By default, prefix_score is the maximum possible value.
   //
-  // - If all alphanumeric characters in the rightmost path component of the
-  // query matched in the rightmost path component of the item, prefix_score is
-  // instead the maximum possible value - 1.
+  // - If any character in the query matched the first character in the
+  // rightmost path component of the item, prefix_score is instead the maximum
+  // possible value - 1.
+  //
+  // - If all characters in the rightmost path component of the query matched
+  // in the rightmost path component of the item, prefix_score is instead the
+  // maximum possible value - 2.
   //
   // - If, in addition, the first character in the rightmost path component of
   // the query matched the first character in the rightmost path component of
-  // the item, prefix_score is instead the maximum possible value - 2.
+  // the item (i.e. both of the above conditions hold), prefix_score is instead
+  // the maximum possible value - 3.
   //
   // - If, in addition, all alphanumeric characters in the rightmost path
   // component of the query matched in a prefix of a word in the rightmost path
