@@ -142,12 +142,13 @@ void StringHandler::decode(boost::string_ref const str,
   }
 #endif
   chars.reserve(str.size());
-  CharCount pos = 0;
   for (char const c : str) {
     chars.push_back(c);
-    if (char_positions) {
-      char_positions->push_back(pos);
-      pos++;
+  }
+  if (char_positions) {
+    char_positions->reserve(str.size());
+    for (std::size_t i = 0; i < str.size(); i++) {
+      char_positions->push_back(i);
     }
   }
 }

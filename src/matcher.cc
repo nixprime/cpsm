@@ -110,6 +110,7 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
   // Offset of the beginning of the current item part from the beginning of the
   // item, in bytes.
   CharCount item_part_first_byte = item.size();
+  std::set<CharCount> match_part_positions;
   for (boost::string_ref const item_part :
        boost::adaptors::reverse(item_parts)) {
     if (query_it == query_end) {
@@ -121,22 +122,25 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     item_part_chars.clear();
     std::vector<CharCount>* item_part_char_positions = nullptr;
     if (match_positions) {
+      item_part_first_byte -= item_part.size();
+      match_part_positions.clear();
       item_part_char_positions =
           (item_part_index == 0) ? &key_char_positions : &temp_char_positions;
       item_part_char_positions->clear();
-      item_part_first_byte -= item_part.size();
     }
     strings_.decode(item_part, item_part_chars, item_part_char_positions);
 
     // Since path components are matched right-to-left, query characters must be
     // consumed greedily right-to-left.
     auto query_prev = query_it;
-    std::set<CharCount> match_part_positions;
-    for (std::size_t i = item_part_chars.size(); i > 0; i--) {
-      if (match_char(item_part_chars[i-1], *query_it)) {
+    for (auto it = item_part_chars.crbegin(), end = item_part_chars.crend();
+         it != end; ++it) {
+      if (match_char(*it, *query_it)) {
         // Don't store match positions for the key yet, since match_key will
         // refine them.
         if (match_positions && item_part_index != 0) {
+          std::size_t const i =
+              item_part_chars.size() - (it - item_part_chars.crbegin());
           CharCount begin = (*item_part_char_positions)[i - 1];
           CharCount end;
           if (i == item_part_chars.size()) {
