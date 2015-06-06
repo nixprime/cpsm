@@ -28,23 +28,23 @@ namespace {
 // Groups match positions into matched intervals.
 std::set<std::pair<std::size_t, std::size_t>> group_positions_detailed(
     std::set<CharCount> const& positions) {
-  std::set<std::pair<std::size_t, std::size_t>> group;
+  std::set<std::pair<std::size_t, std::size_t>> groups;
   std::size_t begin = 0;
   std::size_t end = 0;
   for (CharCount const pos : positions) {
     if (pos != end) {
       // End of previous group, start of new group.
       if (begin != end) {
-        group.emplace(begin, end);
+        groups.emplace(begin, end);
       }
       begin = end = pos;
     }
     end++;
   }
   if (begin != end) {
-    group.emplace(begin, end);
+    groups.emplace(begin, end);
   }
-  return group;
+  return groups;
 }
 
 // Returns a single match group spanning from the first to last match.

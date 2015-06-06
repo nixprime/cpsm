@@ -133,8 +133,7 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     auto query_prev = query_it;
     std::set<CharCount> match_part_positions;
     for (std::size_t i = item_part_chars.size(); i > 0; i--) {
-      char32_t const c = item_part_chars[i-1];
-      if (match_char(c, *query_it)) {
+      if (match_char(item_part_chars[i-1], *query_it)) {
         // Don't store match positions for the key yet, since match_key will
         // refine them.
         if (match_positions && item_part_index != 0) {
