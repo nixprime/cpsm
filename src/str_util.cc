@@ -25,8 +25,12 @@ namespace cpsm {
 
 namespace {
 
-void decompose_utf8_string(boost::string_ref str,
-                           std::vector<char32_t>& chars) {
+#if CPSM_CONFIG_ICU
+
+void decode_utf8_string(boost::string_ref str, std::vector<char32_t>& chars,
+                        std::vector<CharCount>* const char_positions) {
+  CharCount pos = 0;
+  char32_t b0 = 0;
   // Even though most of this function deals with byte-sized quantities, use
   // char32_t throughout to avoid casting.
   auto const lookahead = [&](size_t n) -> char32_t {
@@ -35,68 +39,72 @@ void decompose_utf8_string(boost::string_ref str,
     }
     return str[n];
   };
-  auto const invalid = [&](char32_t b) {
-    chars.push_back(0xdc00 + b);
-    str.remove_prefix(1);
+  auto const decode_as = [&](char32_t c, CharCount len) {
+    chars.push_back(c);
+    str.remove_prefix(len);
+    if (char_positions) {
+      char_positions->push_back(pos);
+      pos += len;
+    }
   };
+  auto const invalid = [&]() { decode_as(0xdc00 + b0, 1); };
   auto const is_continuation =
       [](char32_t b) -> bool { return (b & 0xc0) == 0x80; };
   while (!str.empty()) {
     auto const b0 = lookahead(0);
     if (b0 == 0x00) {
       // Input is a string_ref, not a null-terminated string - premature null?
-      invalid(b0);
+      invalid();
     } else if (b0 < 0x80) {
       // 1-byte character
-      chars.push_back(b0);
-      str.remove_prefix(1);
+      decode_as(b0, 1);
     } else if (b0 < 0xc2) {
       // Continuation or overlong encoding
-      invalid(b0);
+      invalid();
     } else if (b0 < 0xe0) {
       // 2-byte sequence
       auto const b1 = lookahead(1);
       if (!is_continuation(b1)) {
-        invalid(b0);
+        invalid();
       } else {
-        chars.push_back(((b0 & 0x1f) << 6) | (b1 & 0x3f));
-        str.remove_prefix(2);
+        decode_as(((b0 & 0x1f) << 6) | (b1 & 0x3f), 2);
       }
     } else if (b0 < 0xf0) {
       // 3-byte sequence
       auto const b1 = lookahead(1), b2 = lookahead(2);
       if (!is_continuation(b1) || !is_continuation(b2)) {
-        invalid(b0);
+        invalid();
       } else if (b0 == 0xe0 && b1 < 0xa0) {
         // Overlong encoding
-        invalid(b0);
+        invalid();
       } else {
-        chars.push_back(((b0 & 0x0f) << 12) | ((b1 & 0x3f) << 6) | (b2 & 0x3f));
-        str.remove_prefix(3);
+        decode_as(((b0 & 0x0f) << 12) | ((b1 & 0x3f) << 6) | (b2 & 0x3f), 3);
       }
     } else if (b0 < 0xf5) {
       // 4-byte sequence
       auto const b1 = lookahead(1), b2 = lookahead(2), b3 = lookahead(3);
       if (!is_continuation(b1) || !is_continuation(b2) ||
           !is_continuation(b3)) {
-        invalid(b0);
+        invalid();
       } else if (b0 == 0xf0 && b1 < 0x90) {
         // Overlong encoding
-        invalid(b0);
+        invalid();
       } else if (b0 == 0xf4 && b1 >= 0x90) {
         // > U+10FFFF
-        invalid(b0);
+        invalid();
       } else {
-        chars.push_back(((b0 & 0x07) << 18) | ((b1 & 0x3f) << 12) |
-                        ((b2 & 0x3f) << 6) | (b3 & 0x3f));
-        str.remove_prefix(4);
+        decode_as(((b0 & 0x07) << 18) | ((b1 & 0x3f) << 12) |
+                      ((b2 & 0x3f) << 6) | (b3 & 0x3f),
+                  4);
       }
     } else {
       // > U+10FFFF
-      invalid(b0);
+      invalid();
     }
   }
 }
+
+#endif /* CPSM_CONFIG_ICU */
 
 }  // namespace
 
@@ -108,14 +116,22 @@ StringHandler::StringHandler(StringHandlerOpts opts) : opts_(std::move(opts)) {
 #endif
 }
 
-void StringHandler::decompose(boost::string_ref const str,
-                              std::vector<char32_t>& chars) const {
+void StringHandler::decode(boost::string_ref const str,
+                           std::vector<char32_t>& chars,
+                           std::vector<CharCount>* const char_positions) const {
+#if CPSM_CONFIG_ICU
   if (opts_.unicode) {
-    decompose_utf8_string(str, chars);
-  } else {
-    chars.reserve(str.size());
-    for (char const c : str) {
-      chars.push_back(c);
+    decode_utf8_string(str, chars, char_positions);
+    return;
+  }
+#endif
+  chars.reserve(str.size());
+  CharCount pos = 0;
+  for (char const c : str) {
+    chars.push_back(c);
+    if (char_positions) {
+      char_positions->push_back(pos);
+      pos++;
     }
   }
 }

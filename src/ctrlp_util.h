@@ -19,8 +19,12 @@
 #define CPSM_CTRLP_UTIL_H_
 
 #include <functional>
+#include <set>
+#include <string>
 
 #include <boost/utility/string_ref.hpp>
+
+#include "str_util.h"
 
 namespace cpsm {
 
@@ -28,6 +32,12 @@ namespace cpsm {
 // the given CtrlP match mode.
 std::function<boost::string_ref(boost::string_ref)> match_mode_item_substr_fn(
     boost::string_ref mmode);
+
+// Appends a set of Vim regexes to highlight the bytes at positions in item for
+// the given highlight mode.
+void get_highlight_regexes(boost::string_ref mode, boost::string_ref item,
+                           std::set<CharCount> const& positions,
+                           std::vector<std::string>& regexes);
 
 }  // namespace cpsm
 

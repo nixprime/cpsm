@@ -75,6 +75,22 @@ Installation
 Options
 -------
 
+- To control how matched characters are highlighted, set
+
+        let g:cpsm_highlight_mode = (highlight mode)
+
+  Valid highlight modes are:
+
+  - "none": Do not highlight any match characters.
+
+  - "basic": Highlight the entire region between the leftmost and rightmost
+    matched characters.
+
+  - "detailed": Highlight each matched character.
+
+  The default is "detailed". The highlight group used to highlight matched
+  characters is "CtrlPMatch" (the same as for CtrlP's default matcher).
+
 - By default, cpsm will automatically detect the number of matcher threads
   based on the available hardware concurrency. To limit the number of threads
   that cpsm can use, add

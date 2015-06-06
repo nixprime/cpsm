@@ -80,18 +80,23 @@ struct StringHandlerOpts {
   bool unicode = false;
 };
 
-class StringHandler final {
+class StringHandler {
  public:
   explicit StringHandler(StringHandlerOpts opts = StringHandlerOpts());
 
-  // If opts.unicode is false, appends each byte in the given string to the
-  // given vector.
+  // If opts.unicode is false, appends each byte in the given string to chars.
   //
   // If opts.unicode is true, attempts to parse the given string as UTF-8,
-  // appending each code point in the string to the given vector. Non-UTF-8
-  // bytes are appended to the given vector as the invalid code point
-  // 0xdc00+(byte) so that a match can still be attempted.
-  void decompose(boost::string_ref str, std::vector<char32_t>& chars) const;
+  // appending each code point in the string to chars. Non-UTF-8 bytes are
+  // decoded as the low surrogate 0xdc00+(byte) so that a match can still be
+  // attempted.
+  //
+  // In either case, if char_positions is not null, each append to chars will
+  // be accompanied by a corresponding append to char_positions containing the
+  // offset in bytes relative to the beginning of str of the first byte
+  // corresponding to the char.
+  void decode(boost::string_ref str, std::vector<char32_t>& chars,
+              std::vector<CharCount>* char_positions = nullptr) const;
 
   // Returns true if the given code point represents a letter or number.
   bool is_alphanumeric(char32_t c) const;

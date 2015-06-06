@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
     matches.clear();
     for (auto const& line : lines) {
       Match<boost::string_ref> m(line);
-      if (matcher.match(m.item, m, &buf, &buf2)) {
+      if (matcher.match(m.item, m, nullptr, &buf, &buf2)) {
         matches.emplace_back(std::move(m));
         if (limit) {
           std::push_heap(matches.begin(), matches.end());

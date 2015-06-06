@@ -14,6 +14,9 @@
 " limitations under the License.
 
 " Global variables and defaults
+if !exists('g:cpsm_highlight_mode')
+  let g:cpsm_highlight_mode = 'detailed'
+endif
 if !exists('g:cpsm_max_threads')
   let g:cpsm_max_threads = 0
 endif
@@ -28,6 +31,10 @@ execute 'pyfile ' . s:script_dir . '/cpsm.py'
 function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
   py ctrlp_match()
   call clearmatches()
+  " Apply highlight regexes.
+  for r in s:regexes
+    call matchadd('CtrlPMatch', r)
+  endfor
   " CtrlP does this match to hide the leading > in results.
   call matchadd('CtrlPLinePre', '^>')
   return s:results

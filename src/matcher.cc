@@ -30,7 +30,7 @@ namespace cpsm {
 Matcher::Matcher(boost::string_ref const query, MatcherOpts opts,
                  StringHandler strings)
     : opts_(std::move(opts)), strings_(std::move(strings)) {
-  strings_.decompose(query, query_);
+  strings_.decode(query, query_);
   if (opts_.is_path) {
     // Store the index of the first character after the rightmost path
     // separator in the query. (Store an index rather than an iterator to keep
@@ -73,6 +73,7 @@ Matcher::Matcher(boost::string_ref const query, MatcherOpts opts,
 }
 
 bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
+                         std::set<CharCount>* match_positions,
                          std::vector<char32_t>* const buf,
                          std::vector<char32_t>* const buf2) const {
   m = MatchBase();
@@ -81,6 +82,8 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
   std::vector<char32_t>& key_chars = buf ? *buf : key_chars_local;
   std::vector<char32_t> temp_chars_local;
   std::vector<char32_t>& temp_chars = buf2 ? *buf2 : temp_chars_local;
+  std::vector<CharCount> key_char_positions;
+  std::vector<CharCount> temp_char_positions;
 
   std::vector<boost::string_ref> item_parts;
   if (opts_.is_path) {
@@ -103,7 +106,10 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
   auto const query_end = query_.crend();
   auto query_key_begin = query_.cend();
   // Index into item_parts, counting from the right.
-  CharCount part_index = 0;
+  CharCount item_part_index = 0;
+  // Offset of the beginning of the current item part from the beginning of the
+  // item, in bytes.
+  CharCount item_part_first_byte = item.size();
   for (boost::string_ref const item_part :
        boost::adaptors::reverse(item_parts)) {
     if (query_it == query_end) {
@@ -111,15 +117,38 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     }
 
     std::vector<char32_t>& item_part_chars =
-        part_index ? temp_chars : key_chars;
+        (item_part_index == 0) ? key_chars : temp_chars;
     item_part_chars.clear();
-    strings_.decompose(item_part, item_part_chars);
+    std::vector<CharCount>* item_part_char_positions = nullptr;
+    if (match_positions) {
+      item_part_char_positions =
+          (item_part_index == 0) ? &key_char_positions : &temp_char_positions;
+      item_part_char_positions->clear();
+      item_part_first_byte -= item_part.size();
+    }
+    strings_.decode(item_part, item_part_chars, item_part_char_positions);
 
     // Since path components are matched right-to-left, query characters must be
     // consumed greedily right-to-left.
     auto query_prev = query_it;
-    for (char32_t const c : boost::adaptors::reverse(item_part_chars)) {
+    std::set<CharCount> match_part_positions;
+    for (std::size_t i = item_part_chars.size(); i > 0; i--) {
+      char32_t const c = item_part_chars[i-1];
       if (match_char(c, *query_it)) {
+        // Don't store match positions for the key yet, since match_key will
+        // refine them.
+        if (match_positions && item_part_index != 0) {
+          CharCount begin = (*item_part_char_positions)[i - 1];
+          CharCount end;
+          if (i == item_part_chars.size()) {
+            end = item_part.size();
+          } else {
+            end = (*item_part_char_positions)[i];
+          }
+          for (; begin < end; begin++) {
+            match_part_positions.insert(item_part_first_byte + begin);
+          }
+        }
         ++query_it;
         if (query_it == query_end) {
           break;
@@ -135,11 +164,16 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
       continue;
     }
 
-    m.part_index_sum += part_index;
-    if (part_index == 0) {
+    m.part_index_sum += item_part_index;
+    if (item_part_index == 0) {
       query_key_begin = query_it.base();
     }
-    part_index++;
+    item_part_index++;
+    if (match_positions) {
+      for (auto const pos : match_part_positions) {
+        match_positions->insert(pos);
+      }
+    }
   }
 
   // Did all characters match?
@@ -152,7 +186,20 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
 
   // Now do more refined matching on the key (the rightmost path component of
   // the item for a path match, and just the full item otherwise).
-  match_key(key_chars, query_key_begin, m);
+  if (match_positions) {
+    // Adjust key_char_positions to be relative to the beginning of the string
+    // rather than the beginning of the key. item_parts can't be empty because
+    // query is non-empty and matching was successful.
+    CharCount const item_key_first_byte =
+        item.size() - item_parts.back().size();
+    for (auto& pos : key_char_positions) {
+      pos += item_key_first_byte;
+    }
+    // Push item.size() to simplify key_char_positions indexing in match_key
+    // and save an extra parameter.
+    key_char_positions.push_back(item.size());
+  }
+  match_key(key_chars, query_key_begin, m, match_positions, key_char_positions);
   return true;
 }
 
@@ -170,9 +217,11 @@ void Matcher::match_path(std::vector<boost::string_ref> const& item_parts,
   }
 }
 
-void Matcher::match_key(std::vector<char32_t> const& key,
-                        std::vector<char32_t>::const_iterator const query_key,
-                        MatchBase& m) const {
+void Matcher::match_key(
+    std::vector<char32_t> const& key,
+    std::vector<char32_t>::const_iterator const query_key, MatchBase& m,
+    std::set<CharCount>* const match_positions,
+    std::vector<CharCount> const& key_char_positions) const {
   auto const query_key_end = query_.cend();
   if (query_key == query_key_end) {
     return;
@@ -203,6 +252,7 @@ void Matcher::match_key(std::vector<char32_t> const& key,
     bool is_partial_prefix = false;
     bool at_word_start = true;
     bool word_matched = false;
+    std::set<CharCount> match_positions_pass;
     for (std::size_t i = 0; i < key.size(); i++) {
       if (is_word_prefix(i)) {
         word_index++;
@@ -223,6 +273,15 @@ void Matcher::match_key(std::vector<char32_t> const& key,
         if (i == 0 && query_it == query_key) {
           is_partial_prefix = true;
         }
+        if (match_positions) {
+          auto const query_key_begin = query_.cbegin() + query_key_begin_index_;
+          std::size_t base = query_key - query_key_begin;
+          CharCount begin = key_char_positions[i];
+          CharCount const end = key_char_positions[i+1];
+          for (; begin < end; begin++) {
+            match_positions_pass.insert(base + begin);
+          }
+        }
         ++query_it;
         if (query_it == query_key_end) {
           auto const query_key_begin = query_.cbegin() + query_key_begin_index_;
@@ -239,6 +298,11 @@ void Matcher::match_key(std::vector<char32_t> const& key,
           }
           m.word_prefix_len = word_prefix_len;
           m.unmatched_len = key.size() - (i + 1);
+          if (match_positions) {
+            for (auto const pos : match_positions_pass) {
+              match_positions->insert(pos);
+            }
+          }
           return;
         }
       } else {

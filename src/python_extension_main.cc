@@ -35,15 +35,17 @@ namespace {
 
 template <typename F>
 class Deferred {
-  public:
-    explicit Deferred(F f) : f_(std::move(f)), enabled_(true) {}
-    ~Deferred() { if (enabled_) f_(); }
+ public:
+  explicit Deferred(F f) : f_(std::move(f)), enabled_(true) {}
+  ~Deferred() {
+    if (enabled_) f_();
+  }
 
-    void cancel() { enabled_ = false; }
+  void cancel() { enabled_ = false; }
 
-  private:
-    F f_;
-    bool enabled_;
+ private:
+  F f_;
+  bool enabled_;
 };
 
 template <typename F>
@@ -94,9 +96,9 @@ extern "C" {
 
 static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                                   PyObject* kwargs) {
-  static char const* kwlist[] = {"items",  "query",  "limit", "mmode",
-                                 "ispath", "crfile", "max_threads", "unicode",
-                                 nullptr};
+  static char const* kwlist[] = {
+      "items",  "query",       "limit",   "mmode",          "ispath",
+      "crfile", "max_threads", "unicode", "highlight_mode", nullptr};
   PyObject* items_obj;
   char const* query_data;
   Py_ssize_t query_size;
@@ -108,11 +110,14 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
   Py_ssize_t cur_file_size = 0;
   int max_threads_int = 0;
   int unicode = 0;
+  char const* highlight_mode_data = nullptr;
+  Py_ssize_t highlight_mode_size = 0;
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwargs, "Os#|is#is#ii", const_cast<char**>(kwlist), &items_obj,
-          &query_data, &query_size, &limit_int, &mmode_data, &mmode_size,
-          &is_path, &cur_file_data, &cur_file_size, &max_threads_int,
-          &unicode)) {
+          args, kwargs, "Os#|is#is#iis#", const_cast<char**>(kwlist),
+          &items_obj, &query_data, &query_size, &limit_int, &mmode_data,
+          &mmode_size, &is_path, &cur_file_data, &cur_file_size,
+          &max_threads_int, &unicode, &highlight_mode_data,
+          &highlight_mode_size)) {
     return nullptr;
   }
 
@@ -120,17 +125,19 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
   // correct sorting) and the PyObject (so it can be returned).
   typedef std::pair<boost::string_ref, PyObjectPtr> Item;
 
+  using namespace cpsm;
+
   try {
     std::string query(query_data, query_size);
-    cpsm::MatcherOpts mopts;
+    MatcherOpts mopts;
     mopts.cur_file = std::string(cur_file_data, cur_file_size);
     mopts.is_path = is_path;
-    cpsm::StringHandlerOpts sopts;
+    StringHandlerOpts sopts;
     sopts.unicode = unicode;
-    cpsm::Matcher matcher(std::move(query), std::move(mopts),
-                          cpsm::StringHandler(sopts));
-    auto item_substr_fn = cpsm::match_mode_item_substr_fn(
-        boost::string_ref(mmode_data, mmode_size));
+    Matcher const matcher(std::move(query), std::move(mopts),
+                          StringHandler(sopts));
+    auto const item_substr_fn =
+        match_mode_item_substr_fn(boost::string_ref(mmode_data, mmode_size));
     std::size_t const limit = (limit_int >= 0) ? std::size_t(limit_int) : 0;
     unsigned int const max_threads =
         (max_threads_int >= 0) ? static_cast<unsigned int>(max_threads_int) : 0;
@@ -145,8 +152,8 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     bool have_python_ex = false;
 
     // Do matching in parallel.
-    std::vector<std::vector<cpsm::Match<Item>>> thread_matches(nr_threads);
-    std::vector<cpsm::Thread> threads;
+    std::vector<std::vector<Match<Item>>> thread_matches(nr_threads);
+    std::vector<Thread> threads;
     for (unsigned int i = 0; i < nr_threads; i++) {
       auto& matches = thread_matches[i];
       threads.emplace_back(
@@ -208,8 +215,8 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                 if (item_substr_fn) {
                   item_str = item_substr_fn(item_str);
                 }
-                cpsm::Match<Item> m(std::move(item));
-                if (matcher.match(item_str, m, &buf, &buf2)) {
+                Match<Item> m(std::move(item));
+                if (matcher.match(item_str, m, nullptr, &buf, &buf2)) {
                   matches.emplace_back(std::move(m));
                   if (limit) {
                     std::push_heap(matches.begin(), matches.end());
@@ -232,7 +239,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     for (unsigned int i = 0; i < nr_threads; i++) {
       threads[i].join();
       if (threads[i].has_exception()) {
-        throw cpsm::Error(threads[i].exception_msg());
+        throw Error(threads[i].exception_msg());
       }
       nr_matches += thread_matches[i].size();
     }
@@ -241,7 +248,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     }
 
     // Combine per-thread match lists.
-    std::vector<cpsm::Match<Item>> all_matches;
+    std::vector<Match<Item>> all_matches;
     all_matches.reserve(nr_matches);
     for (unsigned int i = 0; i < nr_threads; i++) {
       auto& matches = thread_matches[i];
@@ -251,7 +258,41 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     }
     sort_limit(all_matches, limit);
 
+    // Produce highlighting regexes.
+    boost::string_ref const highlight_mode(highlight_mode_data,
+                                           highlight_mode_size);
+    std::vector<std::string> match_regexes;
+    if (!highlight_mode.empty() && highlight_mode != "none") {
+      // Rerun matching on matched items in order to obtain match positions.
+      for (auto& m : all_matches) {
+        std::set<CharCount> match_positions;
+        boost::string_ref item_str(m.item.first);
+        if (item_substr_fn) {
+          item_str = item_substr_fn(item_str);
+        }
+        if (!matcher.match(item_str, m, &match_positions)) {
+          throw Error("failed to re-match known match '", item_str,
+                      "' during highlight pass");
+        }
+        // Adjust match positions to account for substringing.
+        if (item_substr_fn) {
+          std::size_t const base = item_str.data() - m.item.first.data();
+          std::set<CharCount> new_match_positions;
+          for (auto const pos : match_positions) {
+            new_match_positions.insert(base + pos);
+          }
+          match_positions = new_match_positions;
+        }
+        get_highlight_regexes(highlight_mode, m.item.first, match_positions,
+                              match_regexes);
+      }
+    }
+
     // Translate matches back to Python.
+    PyObjectPtr output_tuple(PyTuple_New(2));
+    if (!output_tuple) {
+      return nullptr;
+    }
     PyObjectPtr matches_list(PyList_New(0));
     if (!matches_list) {
       return nullptr;
@@ -261,7 +302,27 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
         return nullptr;
       }
     }
-    return matches_list.release();
+    if (PyTuple_SetItem(output_tuple.get(), 0, matches_list.release())) {
+      return nullptr;
+    }
+    PyObjectPtr regexes_list(PyList_New(0));
+    if (!regexes_list) {
+      return nullptr;
+    }
+    for (auto const& regex : match_regexes) {
+      PyObjectPtr regex_str(
+          PyString_FromStringAndSize(regex.data(), regex.size()));
+      if (!regex_str) {
+        return nullptr;
+      }
+      if (PyList_Append(regexes_list.get(), regex_str.get()) < 0) {
+        return nullptr;
+      }
+    }
+    if (PyTuple_SetItem(output_tuple.get(), 1, regexes_list.release())) {
+      return nullptr;
+    }
+    return output_tuple.release();
   } catch (std::exception const& ex) {
     PyErr_SetString(PyExc_RuntimeError, ex.what());
     return nullptr;

@@ -16,6 +16,7 @@
 #ifndef CPSM_MATCHER_H_
 #define CPSM_MATCHER_H_
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -45,7 +46,7 @@ struct MatcherOpts {
   QueryPathMode query_path_mode = QueryPathMode::AUTO;
 };
 
-class Matcher final {
+class Matcher {
  public:
   explicit Matcher(boost::string_ref query, MatcherOpts opts = MatcherOpts(),
                    StringHandler strings = StringHandler());
@@ -54,18 +55,25 @@ class Matcher final {
   // given match object with information about the match and returns true.
   // Otherwise returns false.
   //
+  // If match_positions is not null, it will be filled with the indices of all
+  // matched bytes in item. (Note that the number of matched bytes may not be
+  // the same as the number of bytes in the query, or the same between
+  // different items.) This may degrade performance significantly.
+  //
   // If buf and buf2 are not null, they will be used as temporary buffers.
   // Clients performing many matches can improve performance by reusing buffers
   // between matches.
   template <typename T>
   bool match(boost::string_ref const item, Match<T>& m,
+             std::set<CharCount>* match_positions = nullptr,
              std::vector<char32_t>* const buf = nullptr,
              std::vector<char32_t>* const buf2 = nullptr) const {
-    return match_base(item, m, buf, buf2);
+    return match_base(item, m, match_positions, buf, buf2);
   }
 
  private:
   bool match_base(boost::string_ref item, MatchBase& m,
+                  std::set<CharCount>* match_positions,
                   std::vector<char32_t>* buf,
                   std::vector<char32_t>* buf2) const;
 
@@ -73,8 +81,9 @@ class Matcher final {
                   MatchBase& m) const;
 
   void match_key(std::vector<char32_t> const& key,
-                 std::vector<char32_t>::const_iterator query_key,
-                 MatchBase& m) const;
+                 std::vector<char32_t>::const_iterator query_key, MatchBase& m,
+                 std::set<CharCount>* match_positions,
+                 std::vector<CharCount> const& key_char_positions) const;
 
   bool match_char(char32_t item, char32_t query) const;
 
