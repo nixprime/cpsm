@@ -29,8 +29,8 @@ if(ICU_FOUND)
   add_definitions(-DCPSM_CONFIG_ICU=1)
 endif()
 
-find_package(PythonLibs 2.7 REQUIRED)
-include_directories(${PYTHON_INCLUDE_DIRS})
+find_package(PythonLibrary 2.7 REQUIRED)
+include_directories(${PYTHON_INCLUDE_PATH})
 
 find_package(Threads REQUIRED)
 
@@ -43,7 +43,7 @@ target_link_libraries(cpsm_core ${CMAKE_THREAD_LIBS_INIT})
 set_target_properties(cpsm_core PROPERTIES COMPILE_FLAGS "-fPIC")
 
 add_library(cpsm_py SHARED src/ctrlp_util.cc src/python_extension_main.cc)
-target_link_libraries(cpsm_py cpsm_core ${PYTHON_LIBRARY})
+target_link_libraries(cpsm_py cpsm_core ${PYTHON_LIBRARIES})
 set_target_properties(cpsm_py PROPERTIES PREFIX "" SUFFIX ".so")
 install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/autoload)
 install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/test)
