@@ -274,12 +274,10 @@ void Matcher::match_key(
           is_partial_prefix = true;
         }
         if (match_positions) {
-          auto const query_key_begin = query_.cbegin() + query_key_begin_index_;
-          std::size_t base = query_key - query_key_begin;
           CharCount begin = key_char_positions[i];
           CharCount const end = key_char_positions[i+1];
           for (; begin < end; begin++) {
-            match_positions_pass.insert(base + begin);
+            match_positions_pass.insert(begin);
           }
         }
         ++query_it;
