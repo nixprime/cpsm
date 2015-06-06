@@ -48760,6 +48760,7 @@ QUERIES = [
         Query("", "mm/memcontrol.c"),
         Query("", "kernel/signal.c"),
         Query("x86/", "kernel/signal.c"),
+        Query("llr", ""),
         Query("r", "kernel/signal.c"),
         Query("rc", "kernel/signal.c"),
         Query("rcu", "kernel/signal.c"),
