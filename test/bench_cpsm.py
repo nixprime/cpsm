@@ -25,6 +25,8 @@ import linuxclock
 
 if __name__ == "__main__":
     argp = argparse.ArgumentParser()
+    argp.add_argument("-c", "--count", nargs="?", type=int, default=1,
+                      help="number of matches to show")
     argp.add_argument("-n", "--iterations", nargs="?", type=int,
                       default=bench.DEFAULT_ITERATIONS,
                       help="number of iterations per query")
@@ -35,11 +37,11 @@ if __name__ == "__main__":
         times = []
         for _ in xrange(args.iterations):
             start = linuxclock.monotonic()
-            results = cpsm_py.ctrlp_match(bench.ITEMS, query.query,
-                                          limit=bench.LIMIT, ispath=True,
-                                          crfile=query.cur_file,
-                                          max_threads=args.threads)
+            results, _ = cpsm_py.ctrlp_match(bench.ITEMS, query.query,
+                                             limit=bench.LIMIT, ispath=True,
+                                             crfile=query.cur_file,
+                                             max_threads=args.threads)
             finish = linuxclock.monotonic()
             times.append(finish - start)
-        print("%s: avg time %fs, top result: %s" % (
-                query, sum(times) / len(times), results[0]))
+        print("%s: avg time %fs, results: %s" % (
+                query, sum(times) / len(times), results[:args.count]))
