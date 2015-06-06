@@ -160,10 +160,12 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     if (require_full_part_ &&
         !((query_it == query_end) || (*query_it == path_separator()))) {
       query_it = query_prev;
-      continue;
     }
 
-    m.part_index_sum += item_part_index;
+    // Ok, done matching this part.
+    if (query_it != query_prev) {
+      m.parts++;
+    }
     if (item_part_index == 0) {
       query_key_begin = query_it.base();
     }

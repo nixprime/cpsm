@@ -55,10 +55,8 @@ struct MatchBase {
   // rightmost path component of the item.
   CharCount word_prefix_len = 0;
 
-  // Sum of path component indexes (counting from the right) for all item path
-  // components containing at least one match, a lower value of which should
-  // indicate higher confidence that the matches are correct.
-  CharCount part_index_sum = 0;
+  // Number of path components containing at least one match.
+  CharCount parts = 0;
 
   // The number of bytes that are shared between the beginning of the rightmost
   // path component of the match and the rightmost path component of the
@@ -77,10 +75,9 @@ struct MatchBase {
 
   std::string debug_string() const {
     return str_cat("prefix_score=", prefix_score, ", word_prefix_len=",
-                   word_prefix_len, ", part_index_sum=", part_index_sum,
-                   ", cur_file_prefix_len=", cur_file_prefix_len,
-                   ", path_distance=", path_distance, ", unmatched_len=",
-                   unmatched_len);
+                   word_prefix_len, ", parts=", parts, ", cur_file_prefix_len=",
+                   cur_file_prefix_len, ", path_distance=", path_distance,
+                   ", unmatched_len=", unmatched_len);
   }
 };
 
@@ -103,8 +100,8 @@ bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
   if (lhs.word_prefix_len != rhs.word_prefix_len) {
     return lhs.word_prefix_len > rhs.word_prefix_len;
   }
-  if (lhs.part_index_sum != rhs.part_index_sum) {
-    return lhs.part_index_sum < rhs.part_index_sum;
+  if (lhs.parts != rhs.parts) {
+    return lhs.parts < rhs.parts;
   }
   if (lhs.cur_file_prefix_len != rhs.cur_file_prefix_len) {
     return lhs.cur_file_prefix_len > rhs.cur_file_prefix_len;
@@ -124,7 +121,7 @@ void swap(Match<T>& x, Match<T>& y) {
   using std::swap;
   swap(x.prefix_score, y.prefix_score);
   swap(x.word_prefix_len, y.word_prefix_len);
-  swap(x.part_index_sum, y.part_index_sum);
+  swap(x.parts, y.parts);
   swap(x.cur_file_prefix_len, y.cur_file_prefix_len);
   swap(x.path_distance, y.path_distance);
   swap(x.unmatched_len, y.unmatched_len);
