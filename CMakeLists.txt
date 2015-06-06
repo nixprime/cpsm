@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 
 project(cpsm)
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include_directories(${PROJECT_SOURCE_DIR}/src)
 set(CMAKE_BUILD_TYPE Release)
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang|Intel")
