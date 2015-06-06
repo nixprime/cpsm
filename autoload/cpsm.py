@@ -32,9 +32,10 @@ def ctrlp_match():
                 vim.eval("a:items"), vim.eval("a:str"),
                 limit=int(vim.eval("a:limit")), mmode=vim.eval("a:mmode"),
                 ispath=int(vim.eval("a:ispath")), crfile=vim.eval("a:crfile"),
+                highlight_mode=vim.eval("g:cpsm_highlight_mode"),
                 max_threads=int(vim.eval("g:cpsm_max_threads")),
-                unicode=int(vim.eval("g:cpsm_unicode")),
-                highlight_mode=vim.eval("g:cpsm_highlight_mode"))
+                query_inverting_delimiter=vim.eval("g:cpsm_query_inverting_delimiter"),
+                unicode=int(vim.eval("g:cpsm_unicode")))
         # Escape backslashes and ".
         vim.command("let s:results = [%s]" % ",".join(
                 map(_escape_and_quote, results)))

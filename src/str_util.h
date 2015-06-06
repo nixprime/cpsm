@@ -55,6 +55,23 @@ std::string str_cat(Args... args) {
   return ss.str();
 }
 
+// Splits a string into substrings separated by a delimiter.
+std::vector<boost::string_ref> str_split(boost::string_ref str,
+                                         char const delimiter);
+
+// Joins an iterable over a type that can be stringified through a stringstream
+// with the given separator.
+template <typename T>
+std::string str_join(T const& xs, boost::string_ref const sep) {
+  std::stringstream ss;
+  boost::string_ref s;
+  for (auto const& x : xs) {
+    ss << s << x;
+    s = sep;
+  }
+  return ss.str();
+}
+
 // Exception type used by this package.
 class Error : public std::exception {
  public:

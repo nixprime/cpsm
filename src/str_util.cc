@@ -108,6 +108,22 @@ void decode_utf8_string(boost::string_ref str, std::vector<char32_t>& chars,
 
 }  // namespace
 
+std::vector<boost::string_ref> str_split(boost::string_ref str,
+                                         char const delimiter) {
+  std::vector<boost::string_ref> splits;
+  while (true) {
+    auto const dpos = str.find_first_of(delimiter);
+    if (dpos == boost::string_ref::npos) {
+      break;
+    }
+    splits.push_back(str.substr(0, dpos));
+    str.remove_prefix(dpos+1);
+  }
+  splits.push_back(str);
+  return splits;
+}
+
+
 StringHandler::StringHandler(StringHandlerOpts opts) : opts_(std::move(opts)) {
 #if !CPSM_CONFIG_ICU
   if (opts_.unicode) {

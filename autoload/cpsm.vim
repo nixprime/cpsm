@@ -20,6 +20,9 @@ endif
 if !exists('g:cpsm_max_threads')
   let g:cpsm_max_threads = 0
 endif
+if !exists('g:cpsm_query_inverting_delimiter')
+  let g:cpsm_query_inverting_delimiter = ''
+endif
 if !exists('g:cpsm_unicode')
   let g:cpsm_unicode = 0
 endif

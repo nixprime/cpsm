@@ -23,6 +23,7 @@
 #include <string>
 #include <utility>
 
+#include <boost/range/adaptor/reversed.hpp>
 #include <boost/utility/string_ref.hpp>
 
 #include "ctrlp_util.h"
@@ -97,27 +98,33 @@ extern "C" {
 static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                                   PyObject* kwargs) {
   static char const* kwlist[] = {
-      "items",  "query",       "limit",   "mmode",          "ispath",
-      "crfile", "max_threads", "unicode", "highlight_mode", nullptr};
+      "items", "query", "limit", "mmode", "ispath", "crfile", "highlight_mode",
+      "max_threads", "query_inverting_delimiter", "unicode", nullptr};
+  // Required parameters.
   PyObject* items_obj;
   char const* query_data;
   Py_ssize_t query_size;
+  // CtrlP-provided options.
   int limit_int = -1;
   char const* mmode_data = nullptr;
   Py_ssize_t mmode_size = 0;
   int is_path = 0;
   char const* cur_file_data = nullptr;
   Py_ssize_t cur_file_size = 0;
-  int max_threads_int = 0;
-  int unicode = 0;
+  // cpsm-specific options.
   char const* highlight_mode_data = nullptr;
   Py_ssize_t highlight_mode_size = 0;
+  int max_threads_int = 0;
+  char const* query_inverting_delimiter_data = nullptr;
+  Py_ssize_t query_inverting_delimiter_size = 0;
+  int unicode = 0;
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwargs, "Os#|is#is#iis#", const_cast<char**>(kwlist),
+          args, kwargs, "Os#|is#is#s#is#i", const_cast<char**>(kwlist),
           &items_obj, &query_data, &query_size, &limit_int, &mmode_data,
           &mmode_size, &is_path, &cur_file_data, &cur_file_size,
-          &max_threads_int, &unicode, &highlight_mode_data,
-          &highlight_mode_size)) {
+          &highlight_mode_data, &highlight_mode_size, &max_threads_int,
+          &query_inverting_delimiter_data, &query_inverting_delimiter_size,
+          &unicode)) {
     return nullptr;
   }
 
@@ -129,6 +136,17 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
 
   try {
     std::string query(query_data, query_size);
+    boost::string_ref query_inverting_delimiter(query_inverting_delimiter_data,
+                                                query_inverting_delimiter_size);
+    if (!query_inverting_delimiter.empty()) {
+      if (query_inverting_delimiter.size() > 1) {
+        throw Error("query inverting delimiter must be a single character");
+      }
+      query = str_join(boost::adaptors::reverse(
+                           str_split(query, query_inverting_delimiter[0])),
+                       "");
+    }
+
     MatcherOpts mopts;
     mopts.cur_file = std::string(cur_file_data, cur_file_size);
     mopts.is_path = is_path;

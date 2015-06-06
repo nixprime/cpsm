@@ -75,11 +75,14 @@ Installation
 Options
 -------
 
-- To control how matched characters are highlighted, set
+All of the following options are set by adding
 
-        let g:cpsm_highlight_mode = (highlight mode)
+    let (option name) = (option value)
 
-  Valid highlight modes are:
+to your .vimrc.
+
+- `g:cpsm_highlight_mode` controls how matches are highlighted. Valid highlight
+  modes are:
 
   - "none": Do not highlight any match characters.
 
@@ -93,19 +96,25 @@ Options
 
 - By default, cpsm will automatically detect the number of matcher threads
   based on the available hardware concurrency. To limit the number of threads
-  that cpsm can use, add
+  that cpsm can use, set `g:cpsm_max_threads`.
 
-        let g:cpsm_max_threads = (maximum number of threads)
+- When `g:cpsm_query_inverting_delimiter` is set to a single character, it can
+  be used in a query to move the part of the query after it to the part of the
+  query before it. For example, if `g:cpsm_query_inverting_delimiter` is a
+  space, then:
 
-  to your .vimrc.
+  - A query of "foo" is matched normally.
 
-- To enable Unicode support, add
+  - A query of "foo bar" is matched as if it were "barfoo".
 
-        let g:cpsm_unicode = 1
+  - A query of "foo bar qux" is matched as if it were "quxbarfoo".
 
-  to your .vimrc. Unicode support is currently very limited, and consists
-  mostly of parsing input strings as UTF-8 and handling the case of non-ASCII
-  letters correctly.
+  If `g:cpsm_query_inverting_delimiter` is unset or empty, this feature is
+  disabled.
+
+- To enable Unicode support, set `g:cpsm_unicode` to 1. Unicode support is
+  currently very limited, and consists mostly of parsing input strings as UTF-8
+  and handling the case of non-ASCII letters correctly.
 
 Performance
 -----------
