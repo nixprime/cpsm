@@ -27,7 +27,12 @@ namespace cpsm {
 
 // Returns the platform path separator.
 constexpr char32_t path_separator() {
+#ifdef _WIN32
+  // TODO: Support shellslash
+  return '\\';
+#else
   return '/';
+#endif
 }
 
 // Returns the part of the given path after the final (rightmost) path

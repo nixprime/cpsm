@@ -15,8 +15,6 @@
 
 #include "path_util.h"
 
-// TODO: Support non-Unix non-UTF-8 paths.
-
 namespace cpsm {
 
 boost::string_ref path_basename(boost::string_ref const path) {
