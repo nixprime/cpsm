@@ -50,7 +50,7 @@ install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/autoload)
 install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/test)
 
 add_executable(cpsm_cli src/cpsm_cli_main.cc)
-target_link_libraries(cpsm_cli cpsm_core)
+target_link_libraries(cpsm_cli cpsm_core ${Boost_LIBRARIES})
 if(GOOGLE_PERFTOOLS_FOUND)
   target_link_libraries(cpsm_cli profiler)
 endif()
