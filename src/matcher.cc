@@ -164,6 +164,9 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     if (require_full_part_ &&
         !((query_it == query_end) || (*query_it == path_separator()))) {
       query_it = query_prev;
+      if (match_positions) {
+        match_part_positions.clear();
+      }
     }
 
     // Ok, done matching this part.
