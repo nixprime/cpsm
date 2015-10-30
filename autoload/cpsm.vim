@@ -18,7 +18,13 @@ if !exists('g:cpsm_highlight_mode')
   let g:cpsm_highlight_mode = 'detailed'
 endif
 if !exists('g:cpsm_max_threads')
-  let g:cpsm_max_threads = 0
+  if has("win32unix")
+    " Synchronization primitives are extremely slow on Cygwin:
+    " https://cygwin.com/ml/cygwin/2012-08/msg00200.html
+    let g:cpsm_max_threads = 1
+  else
+    let g:cpsm_max_threads = 0
+  endif
 endif
 if !exists('g:cpsm_query_inverting_delimiter')
   let g:cpsm_query_inverting_delimiter = ''
