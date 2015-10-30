@@ -25,7 +25,7 @@
 
 namespace cpsm {
 
-struct MatchBase {
+struct Scorer {
   // - By default, prefix_score is the maximum possible value.
   //
   // - If any character in the query matched the first character in the
@@ -49,22 +49,24 @@ struct MatchBase {
   // - If, in addition, all characters in the rightmost path component of the
   // query matched at the beginning of the rightmost path component of the item,
   // prefix_score is 0.
+  //
+  // Lower is better.
   CharCount2 prefix_score = std::numeric_limits<CharCount2>::max();
 
   // The number of matched characters at the beginning of the "words" in
-  // rightmost path component of the item.
+  // rightmost path component of the item. Higher is better.
   CharCount word_prefix_len = 0;
 
-  // Number of path components containing at least one match.
+  // Number of path components containing at least one match. Lower is better.
   CharCount parts = 0;
 
   // The number of bytes that are shared between the beginning of the rightmost
   // path component of the match and the rightmost path component of the
-  // current file.
+  // current file. Higher is better.
   CharCount cur_file_prefix_len = 0;
 
   // The number of path components that must be traversed between the query and
-  // item paths.
+  // item paths. Lower is better.
   CharCount path_distance = 0;
 
   // The number of consecutive unmatched characters at the end of the rightmost
@@ -73,12 +75,30 @@ struct MatchBase {
   // preferred.
   CharCount unmatched_len = 0;
 
+  // Returns a reverse score (lower is better) summarizing the current value of
+  // this scorer.
+  std::uint64_t reverse_score() const {
+    return (
+        (std::uint64_t(prefix_score) << 31) +
+        (std::uint64_t(std::numeric_limits<CharCount>::max() - word_prefix_len)
+         << 28) +
+        (std::uint64_t(parts) << 20) +
+        (std::uint64_t(std::numeric_limits<CharCount>::max() -
+                       cur_file_prefix_len)
+         << 14) +
+        (std::uint64_t(path_distance) << 8) + std::uint64_t(unmatched_len));
+  }
+
   std::string debug_string() const {
     return str_cat("prefix_score=", prefix_score, ", word_prefix_len=",
                    word_prefix_len, ", parts=", parts, ", cur_file_prefix_len=",
                    cur_file_prefix_len, ", path_distance=", path_distance,
                    ", unmatched_len=", unmatched_len);
   }
+};
+
+struct MatchBase {
+  std::uint64_t reverse_score = std::numeric_limits<std::uint64_t>::max();
 };
 
 template <typename T>
@@ -94,23 +114,8 @@ struct Match : public MatchBase {
 // quality).
 template <typename T>
 bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
-  if (lhs.prefix_score != rhs.prefix_score) {
-    return lhs.prefix_score < rhs.prefix_score;
-  }
-  if (lhs.word_prefix_len != rhs.word_prefix_len) {
-    return lhs.word_prefix_len > rhs.word_prefix_len;
-  }
-  if (lhs.parts != rhs.parts) {
-    return lhs.parts < rhs.parts;
-  }
-  if (lhs.cur_file_prefix_len != rhs.cur_file_prefix_len) {
-    return lhs.cur_file_prefix_len > rhs.cur_file_prefix_len;
-  }
-  if (lhs.path_distance != rhs.path_distance) {
-    return lhs.path_distance < rhs.path_distance;
-  }
-  if (lhs.unmatched_len != rhs.unmatched_len) {
-    return lhs.unmatched_len < rhs.unmatched_len;
+  if (lhs.reverse_score != rhs.reverse_score) {
+    return lhs.reverse_score < rhs.reverse_score;
   }
   // Sort lexicographically on the item if all else fails.
   return lhs.item < rhs.item;
@@ -119,12 +124,7 @@ bool operator<(Match<T> const& lhs, Match<T> const& rhs) {
 template <typename T>
 void swap(Match<T>& x, Match<T>& y) {
   using std::swap;
-  swap(x.prefix_score, y.prefix_score);
-  swap(x.word_prefix_len, y.word_prefix_len);
-  swap(x.parts, y.parts);
-  swap(x.cur_file_prefix_len, y.cur_file_prefix_len);
-  swap(x.path_distance, y.path_distance);
-  swap(x.unmatched_len, y.unmatched_len);
+  swap(x.reverse_score, y.reverse_score);
   swap(x.item, y.item);
 }
 

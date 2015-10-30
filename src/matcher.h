@@ -63,26 +63,18 @@ class Matcher {
   // If buf and buf2 are not null, they will be used as temporary buffers.
   // Clients performing many matches can improve performance by reusing buffers
   // between matches.
-  template <typename T>
-  bool match(boost::string_ref const item, Match<T>& m,
+  bool match(boost::string_ref const item, MatchBase& m,
              std::set<CharCount>* match_positions = nullptr,
              std::vector<char32_t>* const buf = nullptr,
-             std::vector<char32_t>* const buf2 = nullptr) const {
-    return match_base(item, m, match_positions, buf, buf2);
-  }
+             std::vector<char32_t>* const buf2 = nullptr) const;
 
  private:
-  bool match_base(boost::string_ref item, MatchBase& m,
-                  std::set<CharCount>* match_positions,
-                  std::vector<char32_t>* buf,
-                  std::vector<char32_t>* buf2) const;
-
   void match_path(std::vector<boost::string_ref> const& item_parts,
-                  MatchBase& m) const;
+                  Scorer& scorer) const;
 
   void match_key(std::vector<char32_t> const& key,
-                 std::vector<char32_t>::const_iterator query_key, MatchBase& m,
-                 std::set<CharCount>* match_positions,
+                 std::vector<char32_t>::const_iterator query_key,
+                 Scorer& scorer, std::set<CharCount>* match_positions,
                  std::vector<CharCount> const& key_char_positions) const;
 
   bool match_char(char32_t item, char32_t query) const;

@@ -72,11 +72,11 @@ Matcher::Matcher(boost::string_ref const query, MatcherOpts opts,
   }
 }
 
-bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
-                         std::set<CharCount>* match_positions,
-                         std::vector<char32_t>* const buf,
-                         std::vector<char32_t>* const buf2) const {
-  m = MatchBase();
+bool Matcher::match(boost::string_ref const item, MatchBase& m,
+                    std::set<CharCount>* match_positions,
+                    std::vector<char32_t>* const buf,
+                    std::vector<char32_t>* const buf2) const {
+  Scorer scorer;
 
   std::vector<char32_t> key_chars_local;
   std::vector<char32_t>& key_chars = buf ? *buf : key_chars_local;
@@ -92,11 +92,12 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     item_parts.push_back(item);
   }
   if (!item_parts.empty()) {
-    m.unmatched_len = item_parts.back().size();
+    scorer.unmatched_len = item_parts.back().size();
   }
 
   if (query_.empty()) {
-    match_path(item_parts, m);
+    match_path(item_parts, scorer);
+    m.reverse_score = scorer.reverse_score();
     return true;
   }
 
@@ -171,7 +172,7 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
 
     // Ok, done matching this part.
     if (query_it != query_prev) {
-      m.parts++;
+      scorer.parts++;
     }
     if (item_part_index == 0) {
       query_key_begin = query_it.base();
@@ -190,7 +191,7 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
   }
 
   // Fill path match data.
-  match_path(item_parts, m);
+  match_path(item_parts, scorer);
 
   // Now do more refined matching on the key (the rightmost path component of
   // the item for a path match, and just the full item otherwise).
@@ -207,27 +208,30 @@ bool Matcher::match_base(boost::string_ref const item, MatchBase& m,
     // and save an extra parameter.
     key_char_positions.push_back(item.size());
   }
-  match_key(key_chars, query_key_begin, m, match_positions, key_char_positions);
+  match_key(key_chars, query_key_begin, scorer, match_positions,
+            key_char_positions);
+  m.reverse_score = scorer.reverse_score();
   return true;
 }
 
 void Matcher::match_path(std::vector<boost::string_ref> const& item_parts,
-                         MatchBase& m) const {
+                         Scorer& scorer) const {
   if (!opts_.is_path) {
     return;
   }
-  m.path_distance = path_distance_between(cur_file_parts_, item_parts);
+  scorer.path_distance = path_distance_between(cur_file_parts_, item_parts);
   // We don't want to exclude cur_file as a match, but we also don't want it
   // to be the top match, so force cur_file_prefix_len to 0 for cur_file (i.e.
   // if path_distance is 0).
-  if (m.path_distance != 0 && !item_parts.empty()) {
-    m.cur_file_prefix_len = common_prefix(cur_file_key_, item_parts.back());
+  if (scorer.path_distance != 0 && !item_parts.empty()) {
+    scorer.cur_file_prefix_len =
+        common_prefix(cur_file_key_, item_parts.back());
   }
 }
 
 void Matcher::match_key(
     std::vector<char32_t> const& key,
-    std::vector<char32_t>::const_iterator const query_key, MatchBase& m,
+    std::vector<char32_t>::const_iterator const query_key, Scorer& scorer,
     std::set<CharCount>* const match_positions,
     std::vector<CharCount> const& key_char_positions) const {
   auto const query_key_end = query_.cend();
@@ -292,21 +296,21 @@ void Matcher::match_key(
         if (query_it == query_key_end) {
           auto const query_key_begin = query_.cbegin() + query_key_begin_index_;
           if (query_key != query_key_begin) {
-            m.prefix_score = std::numeric_limits<CharCount2>::max();
+            scorer.prefix_score = std::numeric_limits<CharCount2>::max();
             if (start_matched) {
-              m.prefix_score = std::numeric_limits<CharCount2>::max() - 1;
+              scorer.prefix_score = std::numeric_limits<CharCount2>::max() - 1;
             }
           } else if ((i + 1) == std::size_t(query_key_end - query_key_begin)) {
-            m.prefix_score = 0;
+            scorer.prefix_score = 0;
           } else if (pass == 0) {
-            m.prefix_score = word_index_sum;
+            scorer.prefix_score = word_index_sum;
           } else if (start_matched) {
-            m.prefix_score = std::numeric_limits<CharCount2>::max() - 3;
+            scorer.prefix_score = std::numeric_limits<CharCount2>::max() - 3;
           } else {
-            m.prefix_score = std::numeric_limits<CharCount2>::max() - 2;
+            scorer.prefix_score = std::numeric_limits<CharCount2>::max() - 2;
           }
-          m.word_prefix_len = word_prefix_len;
-          m.unmatched_len = key.size() - (i + 1);
+          scorer.word_prefix_len = word_prefix_len;
+          scorer.unmatched_len = key.size() - (i + 1);
           if (match_positions) {
             for (auto const pos : match_positions_pass) {
               match_positions->insert(pos);

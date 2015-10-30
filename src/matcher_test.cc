@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include <algorithm>
+#include <cinttypes>
 #include <cstdio>
 #include <stdexcept>
 #include <string>
@@ -58,7 +59,7 @@ void test_match_order() {
   sort_limit(match_objs);
   std::printf("matches:\n");
   for (auto& m : match_objs) {
-    std::printf("%s (%s)\n", m.item.c_str(), m.debug_string().c_str());
+    std::printf("%s (0x%" PRIx64 ")\n", m.item.c_str(), m.reverse_score);
     matches.emplace_back(std::move(m.item));
   }
 
