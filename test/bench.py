@@ -17,7 +17,7 @@
 
 import collections
 
-import cpsm
+import cpsm_py
 import linuxclock
 
 # Contents of a clean Linux 4.0 source tree excluding .git, in unsorted order
