@@ -44,7 +44,11 @@ set_target_properties(cpsm_core PROPERTIES COMPILE_FLAGS "-fPIC")
 
 add_library(cpsm_py SHARED src/ctrlp_util.cc src/python_extension_main.cc)
 target_link_libraries(cpsm_py cpsm_core ${PYTHON_LIBRARIES})
-set_target_properties(cpsm_py PROPERTIES PREFIX "")
+if(APPLE)
+  set_target_properties(cpsm_py PROPERTIES PREFIX "" SUFFIX ".so")
+else()
+  set_target_properties(cpsm_py PROPERTIES PREFIX "")
+endif()
 install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/autoload)
 install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/test)
 
