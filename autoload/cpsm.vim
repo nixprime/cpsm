@@ -38,6 +38,7 @@ let s:script_dir = escape(expand('<sfile>:p:h'), '\')
 execute 'pyfile ' . s:script_dir . '/cpsm.py'
 
 function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
+  let s:match_crfile = exists('g:ctrlp_match_current_file') ? g:ctrlp_match_current_file : 0
   py ctrlp_match()
   call clearmatches()
   " Apply highlight regexes.

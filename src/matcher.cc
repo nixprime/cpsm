@@ -97,6 +97,9 @@ bool Matcher::match(boost::string_ref const item, MatchBase& m,
 
   if (query_.empty()) {
     match_path(item_parts, scorer);
+    if (!opts_.match_crfile && scorer.path_distance == 0) {
+      return false;
+    }
     m.reverse_score = scorer.reverse_score();
     return true;
   }
@@ -192,6 +195,12 @@ bool Matcher::match(boost::string_ref const item, MatchBase& m,
 
   // Fill path match data.
   match_path(item_parts, scorer);
+
+  // Now that match_path has filled scorer.path_distance, apply
+  // match_crfile.
+  if (!opts_.match_crfile && scorer.path_distance == 0) {
+    return false;
+  }
 
   // Now do more refined matching on the key (the rightmost path component of
   // the item for a path match, and just the full item otherwise).

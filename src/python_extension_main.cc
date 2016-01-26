@@ -97,9 +97,10 @@ extern "C" {
 
 static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                                   PyObject* kwargs) {
-  static char const* kwlist[] = {
-      "items", "query", "limit", "mmode", "ispath", "crfile", "highlight_mode",
-      "max_threads", "query_inverting_delimiter", "unicode", nullptr};
+  static char const* kwlist[] = {"items", "query", "limit", "mmode", "ispath",
+                                 "crfile", "highlight_mode", "match_crfile",
+                                 "max_threads", "query_inverting_delimiter",
+                                 "unicode", nullptr};
   // Required parameters.
   PyObject* items_obj;
   char const* query_data;
@@ -114,17 +115,18 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
   // cpsm-specific options.
   char const* highlight_mode_data = nullptr;
   Py_ssize_t highlight_mode_size = 0;
+  int match_crfile = 0;
   int max_threads_int = 0;
   char const* query_inverting_delimiter_data = nullptr;
   Py_ssize_t query_inverting_delimiter_size = 0;
   int unicode = 0;
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwargs, "Os#|is#is#s#is#i", const_cast<char**>(kwlist),
+          args, kwargs, "Os#|is#is#s#iis#i", const_cast<char**>(kwlist),
           &items_obj, &query_data, &query_size, &limit_int, &mmode_data,
           &mmode_size, &is_path, &cur_file_data, &cur_file_size,
-          &highlight_mode_data, &highlight_mode_size, &max_threads_int,
-          &query_inverting_delimiter_data, &query_inverting_delimiter_size,
-          &unicode)) {
+          &highlight_mode_data, &highlight_mode_size, &match_crfile,
+          &max_threads_int, &query_inverting_delimiter_data,
+          &query_inverting_delimiter_size, &unicode)) {
     return nullptr;
   }
 
@@ -150,6 +152,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     MatcherOpts mopts;
     mopts.cur_file = std::string(cur_file_data, cur_file_size);
     mopts.is_path = is_path;
+    mopts.match_crfile = match_crfile;
     StringHandlerOpts sopts;
     sopts.unicode = unicode;
     Matcher const matcher(std::move(query), std::move(mopts),

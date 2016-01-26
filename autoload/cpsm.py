@@ -33,6 +33,7 @@ def ctrlp_match():
                 limit=int(vim.eval("a:limit")), mmode=vim.eval("a:mmode"),
                 ispath=int(vim.eval("a:ispath")), crfile=vim.eval("a:crfile"),
                 highlight_mode=vim.eval("g:cpsm_highlight_mode"),
+                match_crfile=int(vim.eval("s:match_crfile")),
                 max_threads=int(vim.eval("g:cpsm_max_threads")),
                 query_inverting_delimiter=vim.eval("g:cpsm_query_inverting_delimiter"),
                 unicode=int(vim.eval("g:cpsm_unicode")))

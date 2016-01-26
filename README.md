@@ -116,6 +116,8 @@ to your .vimrc.
   currently very limited, and consists mostly of parsing input strings as UTF-8
   and handling the case of non-ASCII letters correctly.
 
+In addition, cpsm respects the value set for `g:ctrlp_match_current_file`.
+
 Performance
 -----------
 

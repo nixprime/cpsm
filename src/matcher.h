@@ -44,6 +44,9 @@ struct MatcherOpts {
     AUTO,
   };
   QueryPathMode query_path_mode = QueryPathMode::AUTO;
+
+  // If true, consider the currently open file as a match.
+  bool match_crfile = true;
 };
 
 class Matcher {
