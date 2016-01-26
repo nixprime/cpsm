@@ -81,6 +81,19 @@ All of the following options are set by adding
 
 to your .vimrc.
 
+- As shown below, cpsm will still attempt to perform matching on an empty query
+  based on the open file in the current buffer. This interacts badly with e.g.
+  CtrlPMRU. To disable all matching on empty queries, set
+  `g:cpsm_match_empty_query` to 0. If you want empty query matching to only be
+  disabled for MRU mode, it's recommended that you configure this in your
+  bindings, e.g.:
+
+        nnoremap <silent> <C-o> :let g:cpsm_match_empty_query = 0<CR>:CtrlPMRU<CR>
+        nnoremap <silent> <C-p> :let g:cpsm_match_empty_query = 1<CR>:CtrlP<CR>
+
+  Note that if you do the above, you may need to prevent CtrlP from overriding
+  your binding by setting `let g:ctrlp_map = ''`.
+
 - `g:cpsm_highlight_mode` controls how matches are highlighted. Valid highlight
   modes are:
 

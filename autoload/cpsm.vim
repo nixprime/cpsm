@@ -17,6 +17,9 @@
 if !exists('g:cpsm_highlight_mode')
   let g:cpsm_highlight_mode = 'detailed'
 endif
+if !exists('g:cpsm_match_empty_query')
+  let g:cpsm_match_empty_query = 1
+endif
 if !exists('g:cpsm_max_threads')
   if has("win32unix")
     " Synchronization primitives are extremely slow on Cygwin:
@@ -38,8 +41,13 @@ let s:script_dir = escape(expand('<sfile>:p:h'), '\')
 execute 'pyfile ' . s:script_dir . '/cpsm.py'
 
 function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
-  let s:match_crfile = exists('g:ctrlp_match_current_file') ? g:ctrlp_match_current_file : 0
-  py ctrlp_match()
+  if empty(a:str) && g:cpsm_match_empty_query == 0
+    let s:results = a:items[0:(a:limit)]
+    let s:regexes = []
+  else
+    let s:match_crfile = exists('g:ctrlp_match_current_file') ? g:ctrlp_match_current_file : 0
+    py ctrlp_match()
+  endif
   call clearmatches()
   " Apply highlight regexes.
   for r in s:regexes
