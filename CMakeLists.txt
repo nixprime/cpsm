@@ -35,7 +35,7 @@ include_directories(${PYTHON_INCLUDE_PATH})
 
 find_package(Threads REQUIRED)
 
-add_library(cpsm_core src/matcher.cc src/path_util.cc src/str_util.cc)
+add_library(cpsm_core src/str_util.cc)
 if(ICU_FOUND)
   target_link_libraries(cpsm_core ${ICU_LIBRARIES})
 endif()
@@ -54,9 +54,6 @@ install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/test)
 
 add_executable(cpsm_cli EXCLUDE_FROM_ALL src/cpsm_cli_main.cc)
 target_link_libraries(cpsm_cli cpsm_core ${Boost_PROGRAM_OPTIONS_LIBRARIES})
-if(GOOGLE_PERFTOOLS_FOUND)
-  target_link_libraries(cpsm_cli profiler)
-endif()
 set_target_properties(cpsm_cli PROPERTIES PREFIX "" SUFFIX ".bin")
 install(TARGETS cpsm_cli DESTINATION ${PROJECT_SOURCE_DIR}/test OPTIONAL)
 

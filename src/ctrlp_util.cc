@@ -15,85 +15,77 @@
 
 #include "ctrlp_util.h"
 
+#include <algorithm>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
-
-#include "path_util.h"
 
 namespace cpsm {
 
 namespace {
 
 // Groups match positions into matched intervals.
-std::set<std::pair<std::size_t, std::size_t>> group_positions_detailed(
-    std::set<CharCount> const& positions) {
-  std::set<std::pair<std::size_t, std::size_t>> groups;
+std::vector<std::pair<std::size_t, std::size_t>> group_positions_detailed(
+    std::vector<std::size_t> const& positions) {
+  std::vector<std::pair<std::size_t, std::size_t>> groups;
   std::size_t begin = 0;
   std::size_t end = 0;
-  for (CharCount const pos : positions) {
+  for (std::size_t const pos : positions) {
     if (pos != end) {
       // End of previous group, start of new group.
       if (begin != end) {
-        groups.emplace(begin, end);
+        groups.emplace_back(begin, end);
       }
       begin = end = pos;
     }
     end++;
   }
   if (begin != end) {
-    groups.emplace(begin, end);
+    groups.emplace_back(begin, end);
   }
   return groups;
 }
 
 // Returns a single match group spanning from the first to last match.
-std::set<std::pair<std::size_t, std::size_t>> group_positions_basic(
-    std::set<CharCount> const& positions) {
-  std::set<std::pair<std::size_t, std::size_t>> group;
+std::vector<std::pair<std::size_t, std::size_t>> group_positions_basic(
+    std::vector<std::size_t> const& positions) {
+  std::vector<std::pair<std::size_t, std::size_t>> group;
   if (!positions.empty()) {
-    group.emplace(*positions.cbegin(), (*positions.crbegin()) + 1);
+    group.emplace_back(*positions.cbegin(), (*positions.crbegin()) + 1);
   }
   return group;
 }
 
-std::set<std::pair<std::size_t, std::size_t>> group_positions(
-    boost::string_ref const mode, std::set<CharCount> const& positions) {
-  if (mode == "basic") {
+std::vector<std::pair<std::size_t, std::size_t>> group_positions(
+    boost::string_ref const mode, std::vector<std::size_t> const& positions) {
+  if (mode.empty() || mode == "none") {
+    return std::vector<std::pair<std::size_t, std::size_t>>();
+  } else if (mode == "basic") {
     return group_positions_basic(positions);
   } else if (mode == "detailed") {
     return group_positions_detailed(positions);
-  } else {
-    throw Error("unknown highlight mode '", mode, "'");
   }
+  throw Error("unknown highlight mode '", mode, "'");
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
-std::function<boost::string_ref(boost::string_ref)> match_mode_item_substr_fn(
-    boost::string_ref mmode) {
+CtrlPMatchMode parse_ctrlp_match_mode(boost::string_ref const mmode) {
   if (mmode.empty() || mmode == "full-line") {
-    return nullptr;
+    return CtrlPMatchMode::FULL_LINE;
   } else if (mmode == "filename-only") {
-    return path_basename;
+    return CtrlPMatchMode::FILENAME_ONLY;
   } else if (mmode == "first-non-tab") {
-    return [](boost::string_ref const x)
-        -> boost::string_ref { return x.substr(0, x.find_first_of('\t')); };
+    return CtrlPMatchMode::FIRST_NON_TAB;
   } else if (mmode == "until-last-tab") {
-    return [](boost::string_ref const x) -> boost::string_ref {
-      auto const pos = x.find_last_of('\t');
-      if (pos == boost::string_ref::npos) {
-        return x;
-      }
-      return x.substr(pos + 1);
-    };
+    return CtrlPMatchMode::UNTIL_LAST_TAB;
   }
   throw Error("unknown match mode ", mmode);
 }
 
 void get_highlight_regexes(boost::string_ref const mode,
                            boost::string_ref const item,
-                           std::set<CharCount> const& positions,
+                           std::vector<std::size_t> const& positions,
                            std::vector<std::string>& regexes) {
   for (auto const group : group_positions(mode, positions)) {
     // Each match group's regex has the same structure:

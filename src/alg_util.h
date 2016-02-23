@@ -1,5 +1,5 @@
 // cpsm - fuzzy path matcher
-// Copyright (C) 2015 Jamie Liu
+// Copyright (C) 2016 Jamie Liu
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,23 +13,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "str_util.h"
+#ifndef CPSM_ALG_UTIL_H_
+#define CPSM_ALG_UTIL_H_
+
+#include <utility>
 
 namespace cpsm {
 
-std::vector<boost::string_ref> str_split(boost::string_ref str,
-                                         char const delimiter) {
-  std::vector<boost::string_ref> splits;
-  while (true) {
-    auto const dpos = str.find_first_of(delimiter);
-    if (dpos == boost::string_ref::npos) {
-      break;
-    }
-    splits.push_back(str.substr(0, dpos));
-    str.remove_prefix(dpos+1);
+// C++14-ish 4-iterator version of `mismatch` which allows both ranges to be
+// bounded.
+template <typename InputIt1, typename InputIt2>
+std::pair<InputIt1, InputIt2> mismatch(InputIt1 first1, InputIt1 last1,
+                                       InputIt2 first2, InputIt2 last2) {
+  while (first1 != last1 && first2 != last2 && *first1 == *first2) {
+    ++first1;
+    ++first2;
   }
-  splits.push_back(str);
-  return splits;
+  return std::make_pair(first1, first2);
 }
 
 }  // namespace cpsm
+
+#endif  // CPSM_ALG_UTIL_H_

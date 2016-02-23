@@ -20,8 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "match.h"
-#include "matcher.h"
+#include "api.h"
 #include "str_util.h"
 
 namespace cpsm {
@@ -47,28 +46,21 @@ void test_match_order() {
       "foo/qux", "foob/ar",
   });
 
-  Matcher matcher("fb");
-  std::vector<Match<std::string>> match_objs;
   std::vector<std::string> matches;
-  for (auto const& item : items) {
-    Match<std::string> match(item);
-    if (matcher.match(item, match)) {
-      match_objs.emplace_back(std::move(match));
-    }
-  }
-  sort_limit(match_objs);
-  std::printf("matches:\n");
-  for (auto& m : match_objs) {
-    std::printf("%s (0x%" PRIx64 ")\n", m.item.c_str(), m.reverse_score);
-    matches.emplace_back(std::move(m.item));
-  }
+  for_each_match<StringRefItem>(
+      "fb", Options().set_want_match_info(true),
+      range_source<StringRefItem>(items.cbegin(), items.cend()),
+      [&](StringRefItem item, MatchInfo const* info) {
+        std::printf("Matched %s (%s)\n", item.item().data(),
+                    info->score_debug_string().c_str());
+        matches.push_back(copy_string_ref(item.item()));
+      });
 
-  auto const match_it =
-      [&](boost::string_ref const item) -> std::vector<std::string>::iterator {
-        return std::find_if(
-            matches.begin(), matches.end(),
-            [item](std::string const& match) -> bool { return item == match; });
-      };
+  auto const match_it = [&](boost::string_ref const item) {
+    return std::find_if(matches.begin(), matches.end(),
+                        [item](boost::string_ref const match)
+                            -> bool { return item == match; });
+  };
   auto const matched = [&](boost::string_ref const item)
                            -> bool { return match_it(item) != matches.end(); };
   auto const assert_matched = [&](boost::string_ref const item) {
@@ -133,12 +125,12 @@ void test_match_order() {
   // "foo/foo_bar_test" should rank above "foo/foo_test_bar" since its matched
   // characters are in consecutive words.
   assert_better_match("foo/foo_bar_test", "foo/foo_test_bar");
-  // "foo/foobar" should rank below all of the above since the 'b' is not a
-  // detectable word boundary match.
-  assert_better_match("foo/foo_test_bar", "foo/foobar");
   // "foo/bar" should rank below all of the above since it breaks the match
   // across multiple path components.
-  assert_better_match("foo/foobar", "foo/bar");
+  assert_better_match("foo/foo_test_bar", "foo/bar");
+  // "foo/foobar" should rank below all of the above since the 'b' is not a
+  // detectable word boundary match.
+  assert_better_match("foo/bar", "foo/foobar");
   // "foo/abar" and "foob/ar" should rank lowest since the matched 'b' isn't
   // even at the beginning of the filename in either case, though it's
   // unspecified which of the two is higher.

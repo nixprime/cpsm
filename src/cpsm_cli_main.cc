@@ -22,18 +22,10 @@
 #include <boost/program_options.hpp>
 #include <boost/utility/string_ref.hpp>
 
-#if CPSM_CONFIG_HAVE_GOOGLE_PERFTOOLS
-#include <gperftools/profiler.h>
-#endif
-
-#include "match.h"
-#include "matcher.h"
+#include "api.h"
 #include "str_util.h"
 
 namespace po = boost::program_options;
-
-namespace cpsm {
-namespace {
 
 int main(int argc, char** argv) {
   std::cin.sync_with_stdio(false);
@@ -42,18 +34,12 @@ int main(int argc, char** argv) {
 
   po::options_description opts_desc("Options");
   opts_desc.add_options()
-#if CPSM_CONFIG_HAVE_GOOGLE_PERFTOOLS
-      ("cpu_profile", po::value<std::string>(),
-       "write CPU profile to the given file")
-#endif
-      ("cur_file", po::value<std::string>()->default_value(""),
-       "cur_file passed to the matcher")
+      ("crfile", po::value<std::string>()->default_value(""),
+       "'currently open file' passed to the matcher")
       ("limit", po::value<std::size_t>()->default_value(10),
        "maximum number of matches to return")
       ("query", po::value<std::string>()->default_value(""),
        "query to match items against")
-      ("repeat", po::value<std::size_t>()->default_value(1),
-       "number of times to run matching")
       ("help", "display this help and exit")
       ;
 
@@ -73,56 +59,19 @@ int main(int argc, char** argv) {
     line.clear();
   }
 
-  MatcherOpts mopts;
-  mopts.cur_file = opts["cur_file"].as<std::string>();
-  Matcher matcher(opts["query"].as<std::string>(), std::move(mopts));
-  std::size_t limit = opts["limit"].as<std::size_t>();
-  std::size_t repeats = opts["repeat"].as<std::size_t>();
-  std::vector<Match<boost::string_ref>> matches;
-  std::vector<char32_t> buf, buf2;
-#if CPSM_CONFIG_HAVE_GOOGLE_PERFTOOLS
-  if (opts.count("cpu_profile")) {
-    ProfilerStart(opts["cpu_profile"].as<std::string>().c_str());
-  }
-#endif
-  for (std::size_t i = 0; i < repeats; i++) {
-    matches.clear();
-    for (auto const& line : lines) {
-      Match<boost::string_ref> m(line);
-      if (matcher.match(m.item, m, nullptr, &buf, &buf2)) {
-        matches.emplace_back(std::move(m));
-        if (limit) {
-          std::push_heap(matches.begin(), matches.end());
-          if (matches.size() > limit) {
-            std::pop_heap(matches.begin(), matches.end());
-            matches.pop_back();
-          }
-        }
-      }
-    }
-    std::sort(matches.begin(), matches.end());
-#if CPSM_CONFIG_HAVE_GOOGLE_PERFTOOLS
-  if (opts.count("cpu_profile")) {
-    ProfilerFlush();
-  }
-#endif
-  }
-#if CPSM_CONFIG_HAVE_GOOGLE_PERFTOOLS
-  if (opts.count("cpu_profile")) {
-    ProfilerStop();
-  }
-#endif
-
-  for (auto const& m : matches) {
-    std::cout << m.item << " (" << m.debug_string() << ")" << std::endl;
-  }
+  auto const crfile = opts["crfile"].as<std::string>();
+  auto const limit = opts["limit"].as<std::size_t>();
+  auto const query = opts["query"].as<std::string>();
+  auto const mopts =
+      cpsm::Options().set_crfile(crfile).set_limit(limit).set_want_match_info(
+          true);
+  cpsm::for_each_match<cpsm::StringRefItem>(
+      query, mopts,
+      cpsm::range_source<cpsm::StringRefItem>(lines.cbegin(), lines.cend()),
+      [&](cpsm::StringRefItem item, cpsm::MatchInfo const* info) {
+        std::cout << item.item() << " (score: " << info->score() << ") ("
+                  << info->score_debug_string() << std::endl;
+      });
 
   return 0;
-}
-
-}  // namespace
-}  // namespace cpsm
-
-int main(int argc, char** argv) {
-  return cpsm::main(argc, argv);
 }

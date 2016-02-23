@@ -20,23 +20,16 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <boost/utility/string_ref.hpp>
 
+#if CPSM_CONFIG_ICU
+#include <unicode/uchar.h>
+#endif
+
 namespace cpsm {
-
-// The type to use for character, etc. counts. This is usually uint16_t because
-// cpsm is mostly used to match paths, and path lengths are not capable of
-// exceeding the range of 16 bits on most major operating systems:
-// - Linux: PATH_MAX = 4096
-// - Mac OS X: PATH_MAX = 1024
-// - Windows: MAX_PATH = 260; Unicode interfaces may support paths of up to
-//   32767 characters
-typedef std::uint16_t CharCount;
-
-// A type twice the size of CharCount.
-typedef std::uint32_t CharCount2;
 
 inline void str_cat_impl(std::stringstream& ss) {}
 
@@ -87,46 +80,188 @@ class Error : public std::exception {
   std::string msg_;
 };
 
-// Returns a new std::string that is a copy of the data viewed by the given
-// boost::string_ref.
+// Returns a new `std::string` that is a copy of the data viewed by the given
+// `boost::string_ref`.
 inline std::string copy_string_ref(boost::string_ref const sref) {
   return std::string(sref.data(), sref.size());
 }
 
-struct StringHandlerOpts {
-  bool unicode = false;
+// Constructs a copy of the range defined by the given iterators over a char[].
+template <typename It>
+boost::string_ref ref_str_iters(It first, It last) {
+  return boost::string_ref(&*first, last - first);
+}
+
+// StringTraits type for paths that are 7-bit clean, which is the common case
+// for source code.
+struct SimpleStringTraits {
+  typedef char Char;
+
+  // For each character `c` in `str`, invokes `f(c, pos, len)` where `pos` is
+  // the offset in bytes of the first byte corresponding to `c` in `str` and
+  // `len` is its length in bytes.
+  template <typename F>
+  static void for_each_char(boost::string_ref const str, F const& f) {
+    for (std::size_t i = 0, end = str.size(); i < end; i++) {
+      f(str[i], i, 1);
+    }
+  }
+
+  // Returns true if the given character represents a letter or number.
+  static constexpr bool is_alphanumeric(Char const c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z');
+  }
+
+  // Returns true if the given character represents an uppercase letter.
+  static constexpr bool is_uppercase(Char const c) {
+    return c >= 'A' && c <= 'Z';
+  }
+
+  // Returns the lowercase version of the given uppercase letter.
+  static constexpr Char uppercase_to_lowercase(Char const c) {
+    return c + ('a' - 'A');
+  }
 };
 
-class StringHandler {
- public:
-  explicit StringHandler(StringHandlerOpts opts = StringHandlerOpts());
+template <typename StringTraits>
+void decode_to(boost::string_ref const str,
+               std::vector<typename StringTraits::Char>& chars) {
+  chars.reserve(str.size());
+  StringTraits::for_each_char(str, [&](typename StringTraits::Char c, int,
+                                       int) { chars.push_back(c); });
+}
 
-  // If opts.unicode is false, appends each byte in the given string to chars.
-  //
-  // If opts.unicode is true, attempts to parse the given string as UTF-8,
-  // appending each code point in the string to chars. Non-UTF-8 bytes are
-  // decoded as the low surrogate 0xdc00+(byte) so that a match can still be
-  // attempted.
-  //
-  // In either case, if char_positions is not null, each append to chars will
-  // be accompanied by a corresponding append to char_positions containing the
-  // offset in bytes relative to the beginning of str of the first byte
-  // corresponding to the char.
-  void decode(boost::string_ref str, std::vector<char32_t>& chars,
-              std::vector<CharCount>* char_positions = nullptr) const;
+template <typename StringTraits>
+std::vector<typename StringTraits::Char> decode(boost::string_ref const str) {
+  std::vector<typename StringTraits::Char> vec;
+  decode_to<StringTraits>(str, vec);
+  return vec;
+}
 
-  // Returns true if the given code point represents a letter or number.
-  bool is_alphanumeric(char32_t c) const;
+#if CPSM_CONFIG_ICU
 
-  // Returns true if the given code point represents an uppercase letter.
-  bool is_uppercase(char32_t c) const;
+// StringTraits type for UTF-8-encoded strings. Non-UTF-8 bytes are decoded as
+// the low surrogate 0xdc00+(byte) so that a match can still be attempted for
+// malformed strings.
+struct Utf8StringTraits {
+  typedef char32_t Char;
 
-  // Returns the lowercase version of c. c must be an uppercase letter.
-  char32_t to_lowercase(char32_t c) const;
+  template <typename F>
+  static void for_each_char(boost::string_ref str, F const& f) {
+    std::size_t pos = 0;
+    char32_t b0 = 0;
+    // Even though most of this function deals with byte-sized quantities, use
+    // char32_t throughout to avoid casting.
+    auto const lookahead = [&](size_t n) -> char32_t {
+      if (n >= str.size()) {
+        return 0;
+      }
+      return str[n];
+    };
+    auto const decode_as = [&](char32_t c, std::size_t len) {
+      f(c, pos, len);
+      str.remove_prefix(len);
+      pos += len;
+    };
+    auto const invalid = [&]() { decode_as(0xdc00 + b0, 1); };
+    auto const is_continuation =
+        [](char32_t b) -> bool { return (b & 0xc0) == 0x80; };
+    while (!str.empty()) {
+      auto const b0 = lookahead(0);
+      if (b0 == 0x00) {
+        // Input is a string_ref, not a null-terminated string - premature null?
+        invalid();
+      } else if (b0 < 0x80) {
+        // 1-byte character
+        decode_as(b0, 1);
+      } else if (b0 < 0xc2) {
+        // Continuation or overlong encoding
+        invalid();
+      } else if (b0 < 0xe0) {
+        // 2-byte sequence
+        auto const b1 = lookahead(1);
+        if (!is_continuation(b1)) {
+          invalid();
+        } else {
+          decode_as(((b0 & 0x1f) << 6) | (b1 & 0x3f), 2);
+        }
+      } else if (b0 < 0xf0) {
+        // 3-byte sequence
+        auto const b1 = lookahead(1), b2 = lookahead(2);
+        if (!is_continuation(b1) || !is_continuation(b2)) {
+          invalid();
+        } else if (b0 == 0xe0 && b1 < 0xa0) {
+          // Overlong encoding
+          invalid();
+        } else {
+          decode_as(((b0 & 0x0f) << 12) | ((b1 & 0x3f) << 6) | (b2 & 0x3f), 3);
+        }
+      } else if (b0 < 0xf5) {
+        // 4-byte sequence
+        auto const b1 = lookahead(1), b2 = lookahead(2), b3 = lookahead(3);
+        if (!is_continuation(b1) || !is_continuation(b2) ||
+            !is_continuation(b3)) {
+          invalid();
+        } else if (b0 == 0xf0 && b1 < 0x90) {
+          // Overlong encoding
+          invalid();
+        } else if (b0 == 0xf4 && b1 >= 0x90) {
+          // > U+10FFFF
+          invalid();
+        } else {
+          decode_as(((b0 & 0x07) << 18) | ((b1 & 0x3f) << 12) |
+                        ((b2 & 0x3f) << 6) | (b3 & 0x3f),
+                    4);
+        }
+      } else {
+        // > U+10FFFF
+        invalid();
+      }
+    }
+  }
 
- private:
-  StringHandlerOpts opts_;
+  static bool is_alphanumeric(Char const c) {
+    return u_hasBinaryProperty(c, UCHAR_POSIX_ALNUM);
+  }
+
+  static bool is_uppercase(Char const c) {
+    return u_hasBinaryProperty(c, UCHAR_UPPERCASE);
+  }
+
+  static Char uppercase_to_lowercase(Char const c) {
+    return u_tolower(c);
+  }
 };
+
+#else  // CPSM_CONFIG_ICU
+
+struct Utf8StringTraits {
+  typedef char32_t Char;
+
+  [[noreturn]] static void unimplemented() {
+    throw Error("cpsm built without Unicode support");
+  }
+
+  template <typename F>
+  static void for_each_char(boost::string_ref str, F const& f) {
+    unimplemented();
+  }
+
+  static bool is_alphanumeric(Char const c) {
+    unimplemented();
+  }
+
+  static bool is_uppercase(Char const c) {
+    unimplemented();
+  }
+
+  static Char uppercase_to_lowercase(Char const c) {
+    unimplemented();
+  }
+};
+
+#endif // CPSM_CONFIG_ICU
 
 }  // namespace cpsm
 

@@ -18,6 +18,9 @@
 
 #include <thread>
 #include <utility>
+#include <vector>
+
+#include "str_util.h"
 
 namespace cpsm {
 

@@ -17,59 +17,65 @@
 #define CPSM_PATH_UTIL_H_
 
 #include <algorithm>
-#include <vector>
+#include <cstddef>
 
 #include <boost/utility/string_ref.hpp>
 
+#include "alg_util.h"
 #include "str_util.h"
 
 namespace cpsm {
 
-// Returns the platform path separator.
-constexpr char32_t path_separator() {
+// PathTraits type for platform paths.
+struct PlatformPathTraits {
+  // Returns true if `c` is the conventional coarsest-grained separator of
+  // parts in a filename.
+  static constexpr bool is_extension_separator(char const c) {
+    return c == '.';
+  }
+
+  // Returns true if `c` separates path components.
+  static constexpr bool is_path_separator(char const c) {
 #ifdef _WIN32
-  // TODO: Support shellslash
-  return '\\';
+    // TODO: Support shellslash
+    return c == '\\';
 #else
-  return '/';
+    return c == '/';
 #endif
+  }
+};
+
+// PathTraits type for non-paths.
+struct NonPathTraits {
+  static constexpr bool is_extension_separator(char const c) { return false; }
+  static constexpr bool is_path_separator(char const c) { return false; }
+};
+
+// If the given path contains a path separator, returns an iterator to after the last path separator. Otherwise returns `first`.
+template <typename PathTraits, typename InputIt>
+InputIt path_basename(InputIt first, InputIt last) {
+  return std::find_if(std::reverse_iterator<InputIt>(last),
+                      std::reverse_iterator<InputIt>(first),
+                      PathTraits::is_path_separator).base();
 }
 
-// Returns the part of the given path after the final (rightmost) path
-// separator.
-boost::string_ref path_basename(boost::string_ref path);
-
-// Splits a path into a list of path components. Components include trailing
-// path separators, and no "normalization" is done on the path, such that
-// concatenating path components results in the original path.
-std::vector<boost::string_ref> path_components_of(boost::string_ref path);
-
-// Returns the distance between two paths that have both been decomposed into
-// path components. The two paths must share the same root, or both be
-// absolute.
-CharCount path_distance_between(std::vector<boost::string_ref> const& x,
-                                std::vector<boost::string_ref> const& y);
-
-// Returns the number of elements that are common at the beginning of the two
-// given iterables.
-template <typename T>
-std::size_t common_prefix(T const& x, T const& y) {
-  auto x_it = x.cbegin();
-  auto y_it = y.cbegin();
-  auto const x_end = x.cend();
-  auto const y_end = y.cend();
-  std::size_t common_ancestors = 0;
-  while (x_it != x_end && y_it != y_end) {
-    if (*x_it != *y_it) {
-      break;
-    }
-    ++x_it;
-    ++y_it;
-    common_ancestors++;
+template <typename PathTraits, typename InputIt>
+std::size_t count_path_components(InputIt first, InputIt last) {
+  if (first == last) {
+    return 0;
   }
-  return common_ancestors;
+  return std::count_if(first, last, PathTraits::is_path_separator) + 1;
+}
+
+// Returns the distance (in path components) between the two given paths.
+template <typename PathTraits, typename InputIt1, typename InputIt2>
+std::size_t path_distance(InputIt1 first1, InputIt2 last1, InputIt2 first2,
+                          InputIt2 last2) {
+  auto const mm = mismatch(first1, last1, first2, last2);
+  return count_path_components<PathTraits>(mm.first, last1) +
+         count_path_components<PathTraits>(mm.second, last2);
 }
 
 }  // namespace cpsm
 
-#endif /* CPSM_PATH_UTIL_H_ */
+#endif  // CPSM_PATH_UTIL_H_
