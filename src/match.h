@@ -82,7 +82,7 @@ struct Scorer {
         (std::uint64_t(prefix_score) << 31) +
         (std::uint64_t(std::numeric_limits<CharCount>::max() - word_prefix_len)
          << 28) +
-        (std::uint64_t(parts) << 20) +
+        (std::uint64_t(parts) << 56) +
         (std::uint64_t(std::numeric_limits<CharCount>::max() -
                        cur_file_prefix_len)
          << 14) +

@@ -137,9 +137,15 @@ bool Matcher::match(boost::string_ref const item, MatchBase& m,
     // Since path components are matched right-to-left, query characters must be
     // consumed greedily right-to-left.
     auto query_prev = query_it;
+    bool prev_matched = false;
+    int contiguous_chunks = 0;
     for (auto it = item_part_chars.crbegin(), end = item_part_chars.crend();
          it != end; ++it) {
       if (match_char(*it, *query_it)) {
+        if (!prev_matched) {
+          contiguous_chunks++;
+          prev_matched = true;
+        }
         // Don't store match positions for the key yet, since match_key will
         // refine them.
         if (match_positions && item_part_index != 0) {
@@ -160,6 +166,8 @@ bool Matcher::match(boost::string_ref const item, MatchBase& m,
         if (query_it == query_end) {
           break;
         }
+      } else {
+        prev_matched = false;
       }
     }
 
@@ -175,7 +183,7 @@ bool Matcher::match(boost::string_ref const item, MatchBase& m,
 
     // Ok, done matching this part.
     if (query_it != query_prev) {
-      scorer.parts++;
+      scorer.parts += contiguous_chunks;
     }
     if (item_part_index == 0) {
       query_key_begin = query_it.base();
