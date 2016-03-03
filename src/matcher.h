@@ -525,6 +525,7 @@ class Matcher : public MatchInfo {
         posns.push_back(item_it - item_first);
       }
       ++item_it;
+      ++props_it;
     }
   }
 
