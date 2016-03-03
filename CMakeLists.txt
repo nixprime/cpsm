@@ -12,6 +12,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 else()
   message(FATAL_ERROR "Unknown compiler - don't know how to turn on C++11.")
 endif()
+set(CMAKE_MACOSX_RPATH 1)
 
 set(Boost_USE_MULTITHREADED ON)
 find_package(Boost REQUIRED COMPONENTS program_options)
