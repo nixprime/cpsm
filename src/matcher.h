@@ -402,12 +402,12 @@ class Matcher : public MatchInfo {
 
   void score_basename_word_prefix_match() {
     auto item_it = item_basename_;
-    auto const item_last = item_.cend();
     auto props_it = props_.cbegin() + (item_basename_ - item_.cbegin());
     auto query_it = qit_basename_;
     auto const query_last = query_.cend();
+    // +1 because the first iteration of the loop skips the word start at the
+    // beginning of the basename.
     auto qit_words_it = qit_basename_words_.cbegin() + 1;
-    auto const qit_words_last = qit_basename_words_.cend();
     auto query_word_last = *qit_words_it;
 
     CharCount current_submatch = 0;
@@ -427,10 +427,11 @@ class Matcher : public MatchInfo {
         current_submatch = 0;
       }
       ++item_it;
-      if (item_it == item_last) {
-        throw Error(
-            "reached end of item while scoring basename word prefix match");
-      }
+      // At this point we know that the basename *is* a word prefix match, so
+      // fully consuming the end of the query should be the only possible way
+      // to leave this loop. Hence we skip the comparison to `item_.cend()`.
+      // (The same applies to `qit_words_it` and `qit_basename_words_.cend()`
+      // below.)
       ++props_it;
       if (props_it->word_start) {
         if (!any_word_matches) {
@@ -438,9 +439,6 @@ class Matcher : public MatchInfo {
         }
         any_word_matches = false;
         ++qit_words_it;
-        if (qit_words_it == qit_words_last) {
-          break;
-        }
         query_word_last = *qit_words_it;
       }
     }
@@ -448,7 +446,7 @@ class Matcher : public MatchInfo {
         std::max(basename_longest_submatch_, current_submatch);
     // -1 here because we broke out upon reaching the last match (`query_it ==
     // query_last`) before incrementing `item_it`.
-    unmatched_suffix_len_ = item_last - item_it - 1;
+    unmatched_suffix_len_ = item_.cend() - item_it - 1;
   }
 
   void score_basename_greedy() {
