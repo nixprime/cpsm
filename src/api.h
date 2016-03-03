@@ -212,6 +212,25 @@ RangeSource<Item, It> range_source(It first, It last) {
 
 namespace detail {
 
+// Type binding a matched item together with its score.
+template <typename Item>
+struct Matched {
+  Score score;
+  Item item;
+
+  Matched() {}
+  explicit Matched(Score score, Item item)
+      : score(score), item(std::move(item)) {}
+
+  // Returns true if `x` is a better match than `y`.
+  static bool is_better(Matched<Item> const &x, Matched<Item> const &y) {
+    if (x.score != y.score) {
+      return x.score > y.score;
+    }
+    return x.item.sort_key() < y.item.sort_key();
+  }
+};
+
 template <typename PathTraits, typename StringTraits, typename Item,
           typename Source, typename Sink>
 void for_each_match(boost::string_ref const query, Options const& opts,
@@ -221,20 +240,13 @@ void for_each_match(boost::string_ref const query, Options const& opts,
   mopts.match_crfile = opts.match_crfile();
 
   // Match in parallel.
-  using MatchedItem = std::pair<Score, Item>;
-  constexpr auto comparator = [](MatchedItem const& x, MatchedItem const& y) {
-    if (x.first != y.first) {
-      return x.first > y.first;
-    }
-    return x.second.sort_key() < y.second.sort_key();
-  };
-  std::vector<std::vector<MatchedItem>> thread_matches(opts.nr_threads());
+  std::vector<std::vector<Matched<Item>>> thread_matches(opts.nr_threads());
   std::vector<Thread> threads;
   threads.reserve(opts.nr_threads());
   for (unsigned int i = 0; i < opts.nr_threads(); i++) {
     threads.emplace_back([&, i] {
       Source src_copy = src;
-      std::vector<MatchedItem> matches;
+      std::vector<Matched<Item>> matches;
       std::vector<Item> batch;
       // If a limit exists, each thread should only keep that many matches.
       if (opts.limit()) {
@@ -249,9 +261,11 @@ void for_each_match(boost::string_ref const query, Options const& opts,
           if (matcher.match(item.match_key())) {
             matches.emplace_back(matcher.score(), std::move(item));
             if (opts.limit()) {
-              std::push_heap(matches.begin(), matches.end(), comparator);
+              std::push_heap(matches.begin(), matches.end(),
+                             Matched<Item>::is_better);
               if (matches.size() > opts.limit()) {
-                std::pop_heap(matches.begin(), matches.end(), comparator);
+                std::pop_heap(matches.begin(), matches.end(),
+                              Matched<Item>::is_better);
                 matches.pop_back();
               }
             }
@@ -275,7 +289,7 @@ void for_each_match(boost::string_ref const query, Options const& opts,
   }
 
   // Combine per-thread match lists.
-  std::vector<MatchedItem> all_matches;
+  std::vector<Matched<Item>> all_matches;
   all_matches.reserve(nr_matches);
   for (auto& matches : thread_matches) {
     std::move(matches.begin(), matches.end(), std::back_inserter(all_matches));
@@ -285,26 +299,26 @@ void for_each_match(boost::string_ref const query, Options const& opts,
   // Sort and limit matches.
   if (opts.limit() && opts.limit() < all_matches.size()) {
     std::partial_sort(all_matches.begin(), all_matches.begin() + opts.limit(),
-                      all_matches.end(), comparator);
+                      all_matches.end(), Matched<Item>::is_better);
     all_matches.resize(opts.limit());
   } else {
-    std::sort(all_matches.begin(), all_matches.end(), comparator);
+    std::sort(all_matches.begin(), all_matches.end(), Matched<Item>::is_better);
   }
 
   // Emit matches.
   if (opts.want_match_info()) {
     Matcher<PathTraits, StringTraits> matcher(query, mopts);
     for (auto& match : all_matches) {
-      if (!matcher.match(match.second.match_key())) {
+      if (!matcher.match(match.item.match_key())) {
         throw Error("failed to re-match known match '",
-                    match.second.match_key(),
+                    match.item.match_key(),
                     "' during match position collection");
       }
-      dst(match.second, &matcher);
+      dst(match.item, &matcher);
     }
   } else {
     for (auto& match : all_matches) {
-      dst(match.second, nullptr);
+      dst(match.item, nullptr);
     }
   }
 }
