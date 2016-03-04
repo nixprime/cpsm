@@ -156,23 +156,25 @@ class Matcher : public MatchInfo {
   Score score() const final {
     return (Score(prefix_level_) << 62) |
            (Score(whole_basename_match_) << 61) |
-           (mask_to(basename_longest_submatch_, 9) << 52) |
-           (mask_to(basename_match_count_, 9) << 43) |
-           (mask_to(penalty(basename_word_gaps_), 9) << 34) |
-           (mask_to(crfile_basename_shared_words_, 9) << 25) |
-           (mask_to(penalty(crfile_path_distance_), 16) << 9) |
-           mask_to(penalty(unmatched_suffix_len_), 9);
+           (mask_to(basename_longest_submatch_, 7) << 54) |
+           (mask_to(basename_match_count_, 7) << 47) |
+           (mask_to(penalty(basename_word_gaps_), 7) << 40) |
+           (mask_to(crfile_basename_shared_words_, 7) << 33) |
+           (mask_to(penalty(crfile_path_distance_), 11) << 22) |
+           (mask_to(penalty(unmatched_suffix_len_), 8) << 14) |
+           mask_to(penalty(item_.size()), 14);
   }
 
   std::string score_debug_string() const final {
-    return str_cat(
-        "prefix_level = ", Score(prefix_level_), ", whole_basename_match = ",
-        whole_basename_match_, ", basename_longest_submatch = ",
-        basename_longest_submatch_, ", basename_match_count = ",
-        basename_match_count_, ", basename_word_gaps = ", basename_word_gaps_,
-        ", crfile_basename_shared_words = ", crfile_basename_shared_words_,
-        ", crfile_path_distance = ", crfile_path_distance_,
-        ", unmatched_suffix_len = ", unmatched_suffix_len_);
+    return str_cat("prefix_level = ", Score(prefix_level_),
+                   ", whole_basename_match = ", whole_basename_match_,
+                   ", basename_longest_submatch = ", basename_longest_submatch_,
+                   ", basename_match_count = ", basename_match_count_,
+                   ", basename_word_gaps = ", basename_word_gaps_,
+                   ", crfile_basename_shared_words = ",
+                   crfile_basename_shared_words_, ", crfile_path_distance = ",
+                   crfile_path_distance_, ", unmatched_suffix_len = ",
+                   unmatched_suffix_len_, ", item_len = ", item_.size());
   }
 
   std::vector<std::size_t> match_positions() const final {
@@ -652,7 +654,7 @@ class Matcher : public MatchInfo {
   // qit_basename_words_[0]`.
   std::vector<Iterator> qit_basename_words_;
 
-  // Metrics used to compute score.
+  // Metrics used to compute score, in order of descending significance.
 
   // Incrementally stronger statements about the quality of the match. Find
   // locations where this field is assigned for details. Higher numeric value
