@@ -51,7 +51,8 @@ struct NonPathTraits {
   static constexpr bool is_path_separator(char const c) { return false; }
 };
 
-// If the given path contains a path separator, returns an iterator to after the last path separator. Otherwise returns `first`.
+// If the given path contains a path separator, returns an iterator to after
+// the last path separator. Otherwise returns `first`.
 template <typename PathTraits, typename InputIt>
 InputIt path_basename(InputIt first, InputIt last) {
   return std::find_if(std::reverse_iterator<InputIt>(last),
@@ -59,21 +60,16 @@ InputIt path_basename(InputIt first, InputIt last) {
                       PathTraits::is_path_separator).base();
 }
 
-template <typename PathTraits, typename InputIt>
-std::size_t count_path_components(InputIt first, InputIt last) {
-  if (first == last) {
-    return 0;
-  }
-  return std::count_if(first, last, PathTraits::is_path_separator) + 1;
-}
-
 // Returns the distance (in path components) between the two given paths.
 template <typename PathTraits, typename InputIt1, typename InputIt2>
 std::size_t path_distance(InputIt1 first1, InputIt2 last1, InputIt2 first2,
                           InputIt2 last2) {
   auto const mm = mismatch(first1, last1, first2, last2);
-  return count_path_components<PathTraits>(mm.first, last1) +
-         count_path_components<PathTraits>(mm.second, last2);
+  if (mm.first == last1 && mm.second == last2) {
+    return 0;
+  }
+  return std::count_if(mm.first, last1, PathTraits::is_path_separator) +
+         std::count_if(mm.second, last2, PathTraits::is_path_separator) + 1;
 }
 
 }  // namespace cpsm

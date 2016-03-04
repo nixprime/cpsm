@@ -80,16 +80,18 @@ class Matcher : public MatchInfo {
       // Queries are smartcased (case-sensitive only if any uppercase appears
       // in the query).
       : query_(decode<StringTraits>(query)),
-        query_basename_(std::find_if(query_.crbegin(), query_.crend(),
-                                     PathTraits::is_path_separator).base()),
+        query_basename_(path_basename<PathTraits>(query_.cbegin(),
+                                                  query_.cend())),
         case_sensitive_(std::any_of(query_.cbegin(), query_.cend(),
                                     StringTraits::is_uppercase)),
-        crfile_(matchcased(decode<StringTraits>(opts.crfile))),
-        crfile_basename_(std::find_if(crfile_.crbegin(), crfile_.crend(),
-                                      PathTraits::is_path_separator).base()),
+        crfile_(decode<StringTraits>(opts.crfile)),
+        crfile_basename_(path_basename<PathTraits>(crfile_.cbegin(),
+                                                   crfile_.cend())),
         crfile_ext_(std::find_if(crfile_.crbegin(),
                                  ReverseIterator(crfile_basename_),
                                  PathTraits::is_extension_separator).base()),
+        crfile_basename_word_ends_(find_word_endings(crfile_basename_,
+                                                     crfile_ext_)),
         match_crfile_(opts.match_crfile) {}
 
   // A Matcher can't be trivially copied because it contains iterators into its
@@ -122,10 +124,15 @@ class Matcher : public MatchInfo {
 
     // Don't waste any time on empty queries, which can't do any further
     // differentiation between items. Also return early if the item is empty,
-    // so the remaining part of the algorithm can assume it isn't.
+    // so that the remainder of the algorithm can assume it isn't.
     if (query_.empty() || item_.empty()) {
       return true;
     }
+
+    // If the match is case-insensitive, the query must not contain any
+    // uppercase letters. Convert all uppercase characters in the item to
+    // lowercase so matching below this point is simply equality comparison.
+    make_item_matchcase();
 
     // Try to constrain the match so that matches are required at the start of
     // matched path components.
@@ -150,24 +157,23 @@ class Matcher : public MatchInfo {
   Score score() const final {
     return (Score(prefix_level_) << 62) |
            (Score(whole_basename_match_) << 61) |
-           (mask_to(basename_longest_submatch_, 10) << 51) |
-           (mask_to(basename_match_count_, 10) << 41) |
-           (mask_to(penalty(basename_word_gaps_), 8) << 33) |
-           (mask_to(crfile_basename_shared_prefix_len_, 12) << 21) |
-           (mask_to(penalty(crfile_path_distance_), 12) << 9) |
+           (mask_to(basename_longest_submatch_, 9) << 52) |
+           (mask_to(basename_match_count_, 9) << 43) |
+           (mask_to(penalty(basename_word_gaps_), 9) << 34) |
+           (mask_to(crfile_basename_shared_words_, 9) << 25) |
+           (mask_to(penalty(crfile_path_distance_), 16) << 9) |
            mask_to(penalty(unmatched_suffix_len_), 9);
   }
 
   std::string score_debug_string() const final {
-    return str_cat("prefix_level = ", Score(prefix_level_),
-                   ", whole_basename_match = ", whole_basename_match_,
-                   ", basename_longest_submatch = ", basename_longest_submatch_,
-                   ", basename_match_count = ", basename_match_count_,
-                   ", basename_word_gaps = ", basename_word_gaps_,
-                   ", crfile_basename_shared_prefix_len = ",
-                   crfile_basename_shared_prefix_len_,
-                   ", crfile_path_distance = ", crfile_path_distance_,
-                   ", unmatched_suffix_len = ", unmatched_suffix_len_);
+    return str_cat(
+        "prefix_level = ", Score(prefix_level_), ", whole_basename_match = ",
+        whole_basename_match_, ", basename_longest_submatch = ",
+        basename_longest_submatch_, ", basename_match_count = ",
+        basename_match_count_, ", basename_word_gaps = ", basename_word_gaps_,
+        ", crfile_basename_shared_words = ", crfile_basename_shared_words_,
+        ", crfile_path_distance = ", crfile_path_distance_,
+        ", unmatched_suffix_len = ", unmatched_suffix_len_);
   }
 
   std::vector<std::size_t> match_positions() const final {
@@ -191,41 +197,66 @@ class Matcher : public MatchInfo {
   typedef typename Vec::const_iterator Iterator;
   typedef typename Vec::const_reverse_iterator ReverseIterator;
 
-  template <typename T>
-  T matchcased(T chars) {
-    if (!case_sensitive_) {
-      // The query must not contain any uppercase letters since otherwise the
-      // query would be case-sensitive, so just force all uppercase characters
-      // to lowercase. (See also `scan` below, which matchcases while
-      // matching.)
-      for (auto& c : chars) {
-        if (StringTraits::is_uppercase(c)) {
-          c = StringTraits::uppercase_to_lowercase(c);
-        }
+  static std::vector<Iterator> find_word_endings(Iterator const first,
+                                                 Iterator const last) {
+    std::vector<Iterator> word_ends;
+    bool prev_uppercase = false;
+    bool prev_alphanumeric = false;
+    for (auto it = first; it != last; ++it) {
+      auto const c = *it;
+      bool const next_uppercase = StringTraits::is_uppercase(c);
+      bool const next_alphanumeric = StringTraits::is_alphanumeric(c);
+      if (prev_alphanumeric &&
+          (!next_alphanumeric || (!prev_uppercase && next_uppercase))) {
+        word_ends.push_back(it - 1);
       }
+      prev_uppercase = next_uppercase;
+      prev_alphanumeric = next_alphanumeric;
     }
-    return chars;
+    if (prev_alphanumeric) {
+      word_ends.push_back(last - 1);
+    }
+    return word_ends;
   }
 
   bool scan() {
     props_.resize(item_.size());
-
     auto props_it = props_.begin();
+    for (auto item_it = item_.cbegin(), item_last = item_.cend();
+         item_it != item_last; ++item_it, ++props_it) {
+      props_it->uppercase = StringTraits::is_uppercase(*item_it);
+    }
+    if (case_sensitive_) {
+      return scan_match<true>();
+    } else {
+      return scan_match<false>();
+    }
+  }
+
+  template <bool CaseSensitive>
+  bool scan_match() const {
     auto query_it = query_.cbegin();
     auto const query_last = query_.cend();
-    for (auto item_it = item_.begin(), item_last = item_.end();
+    if (query_it == query_last) {
+      return true;
+    }
+    auto props_it = props_.cbegin();
+    for (auto item_it = item_.cbegin(), item_last = item_.cend();
          item_it != item_last; ++item_it, ++props_it) {
-      auto& c = *item_it;
-      bool const uppercase = StringTraits::is_uppercase(c);
-      if (!case_sensitive_ && uppercase) {
+      auto c = *item_it;
+      // If the match is case-insensitive, the query must not contain any
+      // uppercase letters.
+      if (!CaseSensitive && props_it->uppercase) {
         c = StringTraits::uppercase_to_lowercase(c);
       }
-      props_it->uppercase = uppercase;
-      if (query_it != query_last && c == *query_it) {
+      if (c == *query_it) {
         ++query_it;
+        if (query_it == query_last) {
+          return true;
+        }
       }
     }
-    return query_it == query_last;
+    return false;
   }
 
   bool check_crfile() {
@@ -234,19 +265,55 @@ class Matcher : public MatchInfo {
     if (!match_crfile_ && crfile_path_distance_ == 0) {
       return false;
     }
-    // Omit `crfile`'s extension so that even if `match_crfile_` is true, path
-    // distance being 0 doesn't cause `crfile` to always be the best result for
-    // an empty query.
-    item_basename_ = std::find_if(item_.crbegin(), item_.crend(),
-                                  PathTraits::is_path_separator).base();
-    crfile_basename_shared_prefix_len_ =
-        mismatch(item_basename_, item_.cend(), crfile_basename_, crfile_ext_)
-            .first -
-        item_basename_;
+    item_basename_ = path_basename<PathTraits>(item_.cbegin(), item_.cend());
+    auto props_it = props_.begin() + (item_basename_ - item_.cbegin());
+    for (auto item_it = item_basename_, item_last = item_.cend();
+         item_it != item_last; ++item_it, ++props_it) {
+      props_it->alphanumeric = StringTraits::is_alphanumeric(*item_it);
+    }
+    crfile_basename_shared_words_ = [this]() -> CharCount {
+      auto crfile_word_end_it = crfile_basename_word_ends_.cbegin();
+      auto const crfile_word_end_last = crfile_basename_word_ends_.cend();
+      if (crfile_word_end_it == crfile_word_end_last) {
+        return 0;
+      }
+      for (auto item_it = item_basename_, item_last = item_.cend(),
+                crfile_it = crfile_basename_, crfile_last = crfile_.cend();
+           item_it != item_last && crfile_it != crfile_last &&
+               *item_it == *crfile_it;
+           ++item_it, ++crfile_it) {
+        if (crfile_it == *crfile_word_end_it) {
+          ++crfile_word_end_it;
+          if (crfile_word_end_it == crfile_word_end_last) {
+            // Only counts if the next character is plausibly not the
+            // continuation of a word.
+            std::size_t const i = item_it - item_.cbegin();
+            if ((i + 1 < item_.size()) && !props_[i + 1].uppercase &&
+                props_[i + 1].alphanumeric) {
+              --crfile_word_end_it;
+            }
+            break;
+          }
+        }
+      }
+      return crfile_word_end_it - crfile_basename_word_ends_.cbegin();
+    }();
     // Ensure that `unmatched_suffix_len_` is initialized even for empty
     // queries.
     unmatched_suffix_len_ = item_.cend() - item_basename_;
     return true;
+  }
+
+  void make_item_matchcase() {
+    if (!case_sensitive_) {
+      auto props_it = props_.cbegin();
+      for (auto item_it = item_.begin(), item_last = item_.end();
+           item_it != item_last; ++item_it, ++props_it) {
+        if (props_it->uppercase) {
+          *item_it = StringTraits::uppercase_to_lowercase(*item_it);
+        }
+      }
+    }
   }
 
   bool check_component_match_front() {
@@ -325,7 +392,7 @@ class Matcher : public MatchInfo {
     auto props_it = props_.begin() + (item_basename_ - item_.cbegin());
 
     bool prev_uppercase = props_it->uppercase;
-    bool prev_alphanumeric = StringTraits::is_alphanumeric(*item_it);
+    bool prev_alphanumeric = props_it->alphanumeric;
     props_it->word_start = true;
 
     // Advances `item_it` and `props_it` to the beginning of the next word. For
@@ -353,9 +420,8 @@ class Matcher : public MatchInfo {
           break;
         }
         ++props_it;
-        auto const c = *item_it;
         bool const uppercase = props_it->uppercase;
-        bool const alphanumeric = StringTraits::is_alphanumeric(c);
+        bool const alphanumeric = props_it->alphanumeric;
         bool const word_start = (!prev_uppercase && uppercase) ||
                                 (!prev_alphanumeric && alphanumeric);
         props_it->word_start = word_start;
@@ -559,17 +625,19 @@ class Matcher : public MatchInfo {
   // Internal state of an in-progress match on an item. Note that many of these
   // fields are set conditionally; see the implementation for details.
 
-  // The decoded, matchable contents of the item. (If the match is
-  // case-insensitive, the matcher will lowercase uppercase characters).
+  // Decoded copy of the item being matched.
   Vec item_;
 
-  // Iterator into `item` at the beginning of the item's basename.
+  // Iterator into `item_` at the beginning of the item's basename.
   Iterator item_basename_;
 
   // Properties of characters in the item.
   struct CharProperties {
     // If true, the character is uppercase.
     bool uppercase;
+
+    // If true, the character is alphanumeric.
+    bool alphanumeric;
 
     // If true, the character is the start of a word.
     bool word_start;
@@ -611,10 +679,10 @@ class Matcher : public MatchInfo {
   // with matches in the basename. Lower is better.
   CharCount basename_word_gaps_;
 
-  // The number of consecutive characters shared between the beginning of the
-  // item's basename and the beginning of the current file's basename. Higher
-  // is better.
-  CharCount crfile_basename_shared_prefix_len_;
+  // The number of consecutive words shared between the beginning of the item's
+  // basename and the beginning of the current file's basename. Higher is
+  // better.
+  CharCount crfile_basename_shared_words_;
 
   // The number of path components that must be traversed between the item's
   // path and the current file's path. Lower is better.
@@ -626,12 +694,32 @@ class Matcher : public MatchInfo {
   CharCount unmatched_suffix_len_;
 
   // Matcher state that is persistent between matches.
+
+  // Decoded copy of the query.
   Vec const query_;
+
+  // Iterator into `query_` at the beginning of the query's basename.
   Iterator const query_basename_;
+
+  // If true, the match is case-sensitive.
   bool const case_sensitive_;
+
+  // Decoded copy of the currently open filename.
   Vec const crfile_;
+
+  // Iterator into `crfile_` at the beginning of the currently open file's
+  // basename.
   Iterator const crfile_basename_;
+
+  // Iterator into `crfile_` at the successor to the currently open file's
+  // rightmost extension separator.
   Iterator const crfile_ext_;
+
+  // Iterators into `crfile_` at the last character of each word in the
+  // currently open file's basename.
+  std::vector<Iterator> const crfile_basename_word_ends_;
+
+  // If false, reject `crfile_` if it appears as an item.
   bool const match_crfile_;
 };
 
