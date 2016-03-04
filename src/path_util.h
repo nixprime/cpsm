@@ -19,9 +19,9 @@
 #include <algorithm>
 #include <cstddef>
 
+#include <boost/algorithm/cxx14/mismatch.hpp>
 #include <boost/utility/string_ref.hpp>
 
-#include "alg_util.h"
 #include "str_util.h"
 
 namespace cpsm {
@@ -64,7 +64,7 @@ InputIt path_basename(InputIt first, InputIt last) {
 template <typename PathTraits, typename InputIt1, typename InputIt2>
 std::size_t path_distance(InputIt1 first1, InputIt2 last1, InputIt2 first2,
                           InputIt2 last2) {
-  auto const mm = mismatch(first1, last1, first2, last2);
+  auto const mm = boost::algorithm::mismatch(first1, last1, first2, last2);
   if (mm.first == last1 && mm.second == last2) {
     return 0;
   }

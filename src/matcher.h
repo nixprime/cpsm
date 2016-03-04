@@ -26,7 +26,6 @@
 
 #include <boost/utility/string_ref.hpp>
 
-#include "alg_util.h"
 #include "path_util.h"
 #include "str_util.h"
 
