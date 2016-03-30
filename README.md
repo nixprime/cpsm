@@ -173,7 +173,7 @@ Performance
 
   - Query "", current file "":
 
-    - cpsm: "Kbuild"; 4.802ms (14.483ms with 1 thread)
+    - cpsm: "Kbuild"; 2.863ms (9.946ms with 1 thread)
 
     - ctrlp: "security/keys/encrypted-keys/Makefile"
 
@@ -194,7 +194,7 @@ Performance
 
   - Query "", current file "mm/memcontrol.c":
 
-    - cpsm: "include/linux/memcontrol.h"; 4.683ms (13.964ms with 1 thread)
+    - cpsm: "include/linux/memcontrol.h"; 2.953ms (10.490ms with 1 thread)
 
     - All others: same as above
 
@@ -208,19 +208,19 @@ Performance
 
   - Query "", current file "kernel/signal.c":
 
-    - cpsm: "include/asm-generic/signal.h"; 4.733ms (14.500ms with 1 thread)
+    - cpsm: "include/linux/signal.h"; 2.838ms (10.242ms with 1 thread)
 
     - All others: same as above
 
-    - "signal" is a significantly more common prefix; cpsm doesn't get what I
-      would consider the best match ("include/linux/signal.h") but it's
-      impossible to choose between these two results without knowledge of the
-      Linux kernel's source layout. (cpsm does pick that file as the
-      second-best match.)
+    - "signal" is a significantly more common prefix, but cpsm gets probably
+      the best match (although this is largely luck; "include/linux" is shorter
+      than the other likeliest possibility, "include/asm-generic", and all else
+      being equal cpsm prefers shorter matches on the grounds that it's easier
+      to add more characters to select a longer match.)
 
   - Query "x86/", current file "kernel/signal.c":
 
-    - cpsm: "arch/x86/kernel/signal.c"; 5.762ms (20.883ms with 1 thread)
+    - cpsm: "arch/x86/um/signal.c"; 1.932ms (6.693ms with 1 thread)
 
     - ctrlp-cmatcher: "arch/x86/Kbuild"; 25.034ms
 
@@ -239,7 +239,7 @@ Performance
 
   - Query "r", current file "kernel/signal.c":
 
-    - cpsm: "kernel/range.c"; 7.128ms (23.512ms with 1 thread)
+    - cpsm: "kernel/range.c"; 3.980ms (14.070ms with 1 thread)
 
     - ctrlp-cmatcher: "README"; 19.825ms
 
@@ -255,7 +255,7 @@ Performance
 
   - Query "rc", current file "kernel/signal.c":
 
-    - cpsm: "kernel/rcu/rcu.h"; 7.612ms (26.283ms with 1 thread)
+    - cpsm: "kernel/rcu/rcu.h"; 3.891ms (13.827ms with 1 thread)
 
     - ctrlp-cmatcher: "arch/Kconfig"; 24.391ms
 
@@ -267,7 +267,7 @@ Performance
 
   - Query "rcu", current file "kernel/signal.c":
 
-    - cpsm: "kernel/rcu/rcu.h"; 6.328ms (22.575ms with 1 thread)
+    - cpsm: "kernel/rcu/rcu.h"; 2.534ms (9.009ms with 1 thread)
 
     - ctrlp-cmatcher: "arch/um/Makefile"; 29.619ms
 
@@ -279,7 +279,7 @@ Performance
 
   - Query "rcup", current file "kernel/signal.c":
 
-    - cpsm: "include/linux/rcupdate.h"; 6.167ms (22.162ms with 1 thread)
+    - cpsm: "include/linux/rcupdate.h"; 2.210ms (7.810ms with 1 thread)
 
     - ctrlp-cmatcher: "kernel/rcu/update.c"; 31.301ms
 
