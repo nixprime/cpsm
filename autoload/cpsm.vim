@@ -41,6 +41,9 @@ let s:script_dir = escape(expand('<sfile>:p:h'), '\')
 execute 'pyfile ' . s:script_dir . '/cpsm.py'
 
 function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
+  if !has('python')
+    return ['ERROR: cpsm requires Vim built with Python support']
+  endif
   if empty(a:str) && g:cpsm_match_empty_query == 0
     let s:results = a:items[0:(a:limit)]
     let s:regexes = []
