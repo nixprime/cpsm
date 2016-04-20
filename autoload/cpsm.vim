@@ -21,7 +21,7 @@ if !exists('g:cpsm_match_empty_query')
   let g:cpsm_match_empty_query = 1
 endif
 if !exists('g:cpsm_max_threads')
-  if has("win32unix")
+  if has('win32unix')
     " Synchronization primitives are extremely slow on Cygwin:
     " https://cygwin.com/ml/cygwin/2012-08/msg00200.html
     let g:cpsm_max_threads = 1
