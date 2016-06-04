@@ -106,7 +106,8 @@ class PyListCtrlPMatchSourceState {
       }
       char* item_data;
       Py_ssize_t item_size;
-      if (PyString_AsStringAndSize(item_obj, &item_data, &item_size) < 0) {
+      item_data = PyUnicode_AsUTF8AndSize(item_obj, &item_size);
+      if (!item_data) {
         have_python_exception_ = true;
         return false;
       }
@@ -273,7 +274,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     }
     for (auto const& regex : highlight_regexes) {
       PyObjPtr regex_str(
-          PyString_FromStringAndSize(regex.data(), regex.size()));
+          PyUnicode_FromStringAndSize(regex.data(), regex.size()));
       if (!regex_str) {
         return nullptr;
       }
@@ -297,6 +298,18 @@ static PyMethodDef cpsm_py_methods[] = {
      "Match strings with a CtrlP-compatible interface"},
     {nullptr, nullptr, 0, nullptr}};
 
-PyMODINIT_FUNC initcpsm_py() { Py_InitModule("cpsm_py", cpsm_py_methods); }
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "cpsm_py",
+    NULL,
+    -1,
+    cpsm_py_methods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+};
+
+PyMODINIT_FUNC PyInit_cpsm_py() { return PyModule_Create(&moduledef); }
 
 } /* extern "C" */

@@ -38,10 +38,10 @@ endif
 
 let s:script_dir = escape(expand('<sfile>:p:h'), '\')
 
-execute 'pyfile ' . s:script_dir . '/cpsm.py'
+execute 'py3file ' . s:script_dir . '/cpsm.py'
 
 function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
-  if !has('python')
+  if !has('python3')
     return ['ERROR: cpsm requires Vim built with Python support']
   endif
   if empty(a:str) && g:cpsm_match_empty_query == 0
@@ -49,7 +49,7 @@ function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
     let s:regexes = []
   else
     let s:match_crfile = exists('g:ctrlp_match_current_file') ? g:ctrlp_match_current_file : 0
-    py ctrlp_match()
+    py3 ctrlp_match()
   endif
   call clearmatches()
   " Apply highlight regexes.
