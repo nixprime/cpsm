@@ -32,7 +32,7 @@ if(ICU_FOUND)
 endif()
 
 if(PY3)
-    set(Python_ADDITIONAL_VERSIONS 3.5 3.4)
+    set(Python_ADDITIONAL_VERSIONS 3.5 3.4 3.3)
     find_package(PythonInterp 3 REQUIRED)
     find_package(PythonLibs 3 REQUIRED)
 else()
