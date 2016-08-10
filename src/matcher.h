@@ -380,11 +380,9 @@ class Matcher : public MatchInfo {
 
     auto item_it = item_basename_;
     auto const item_last = item_.cend();
-    // The item's basename can't be empty, because the item can't be empty (or
-    // else we would have returned early in `match`) and the item's basename
-    // must contain at least a single character (due to
-    // `consume_path_component`'s postcondition in
-    // `check_component_match_front`).
+    if (item_it == item_last) {
+      return false;
+    }
     auto query_it = qit_basename_;
     auto const query_last = query_.cend();
     if (query_it == query_last) {
@@ -521,13 +519,13 @@ class Matcher : public MatchInfo {
     auto const item_last = item_.cend();
     auto query_it = qit_basename_;
     auto const query_last = query_.cend();
-    if (query_it == query_last) {
+    if (item_it == item_last || query_it == query_last) {
       return;
     }
 
     CharCount current_submatch = 0;
 
-    for (; item_it != item_last; ++item_it) {
+    while (true) {
       if (*item_it == *query_it) {
         ++query_it;
         current_submatch++;
@@ -539,9 +537,15 @@ class Matcher : public MatchInfo {
             std::max(basename_longest_submatch_, current_submatch);
         current_submatch = 0;
       }
+      ++item_it;
+      if (item_it == item_last) {
+        break;
+      }
     }
     basename_longest_submatch_ =
         std::max(basename_longest_submatch_, current_submatch);
+    // -1 here because we broke out upon reaching the last match (`query_it ==
+    // query_last`) before incrementing `item_it`.
     unmatched_suffix_len_ = item_last - item_it - 1;
   }
 

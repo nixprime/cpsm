@@ -24,6 +24,7 @@
 #include "str_util.h"
 
 namespace cpsm {
+namespace testing {
 
 class TestAssertionFailure : public std::exception {
  public:
@@ -39,66 +40,46 @@ class TestAssertionFailure : public std::exception {
   std::string msg_;
 };
 
-void test_match_order() {
-  std::vector<std::string> items({
-      "barfoo", "fbar", "foo/bar", "foo/fbar", "foo/foobar", "foo/foo_bar",
-      "foo/foo_bar_test", "foo/foo_test_bar", "foo/FooBar", "foo/abar",
-      "foo/qux", "foob/ar",
-  });
+struct Matches {
+  using Vec = std::vector<std::string>;
+  using size_type = typename Vec::size_type;
+  Vec matches;
 
-  std::vector<std::string> matches;
-  for_each_match<StringRefItem>(
-      "fb", Options().set_want_match_info(true),
-      range_source<StringRefItem>(items.cbegin(), items.cend()),
-      [&](StringRefItem item, MatchInfo const* info) {
-        std::printf("Matched %s (%s)\n", item.item().data(),
-                    info->score_debug_string().c_str());
-        matches.push_back(copy_string_ref(item.item()));
-      });
+  typename Vec::const_iterator find(boost::string_ref const item) const {
+    return std::find(matches.cbegin(), matches.cend(), item);
+  }
 
-  auto const match_it = [&](boost::string_ref const item) {
-    return std::find_if(matches.begin(), matches.end(),
-                        [item](boost::string_ref const match)
-                            -> bool { return item == match; });
-  };
-  auto const matched = [&](boost::string_ref const item)
-                           -> bool { return match_it(item) != matches.end(); };
-  auto const assert_matched = [&](boost::string_ref const item) {
+  bool matched(boost::string_ref const item) const {
+    return find(item) != matches.cend();
+  }
+
+  void assert_matched(boost::string_ref const item) const {
     if (!matched(item)) {
       throw TestAssertionFailure("incorrectly failed to match '", item, "'");
     }
-  };
-  auto const assert_not_matched = [&](boost::string_ref const item) {
+  }
+
+  void assert_not_matched(boost::string_ref const item) const {
     if (matched(item)) {
       throw TestAssertionFailure("incorrectly matched '", item, "'");
     }
-  };
-  assert_not_matched("barfoo");
-  assert_matched("fbar");
-  assert_matched("foo/bar");
-  assert_matched("foo/fbar");
-  assert_matched("foo/foobar");
-  assert_matched("foo/foo_bar");
-  assert_matched("foo/foo_bar_test");
-  assert_matched("foo/foo_test_bar");
-  assert_matched("foo/FooBar");
-  assert_matched("foo/abar");
-  assert_not_matched("foo/qux");
-  assert_matched("foob/ar");
+  }
 
-  auto const match_index = [&](boost::string_ref const item) -> std::size_t {
-    return match_it(item) - matches.begin();
-  };
-  auto const assert_match_index =
-      [&](boost::string_ref const item, std::size_t expected_index) {
-        auto const index = match_index(item);
-        if (index != expected_index) {
-          throw TestAssertionFailure("expected '", item, "' (index ", index,
-                                     ") to have index ", expected_index);
-        }
-      };
-  auto const assert_better_match = [&](boost::string_ref const better_item,
-                                       boost::string_ref const worse_item) {
+  size_type match_index(boost::string_ref const item) const {
+    return find(item) - matches.cbegin();
+  }
+
+  void assert_match_index(boost::string_ref const item,
+                          size_type const expected_index) const {
+    auto const index = match_index(item);
+    if (index != expected_index) {
+      throw TestAssertionFailure("expected '", item, "' (index ", index,
+                                 ") to have index ", expected_index);
+    }
+  }
+
+  void assert_better_match(boost::string_ref const better_item,
+                           boost::string_ref const worse_item) const {
     auto const better_index = match_index(better_item);
     auto const worse_index = match_index(worse_item);
     if (better_index >= worse_index) {
@@ -107,46 +88,109 @@ void test_match_order() {
           ") to be ranked higher (have a lower index) than '", worse_item,
           "' (index ", worse_index, ")");
     }
-  };
+  }
+};
+
+Matches match_and_log(std::initializer_list<boost::string_ref> items,
+                      boost::string_ref const query) {
+  Matches m;
+  for_each_match<StringRefItem>(
+      query, Options().set_want_match_info(true),
+      range_source<StringRefItem>(begin(items), end(items)),
+      [&](StringRefItem item, MatchInfo const* info) {
+        std::printf("Matched %s (%s)\n", item.item().data(),
+                    info->score_debug_string().c_str());
+        m.matches.push_back(copy_string_ref(item.item()));
+      });
+  return m;
+}
+
+void test_match_order() {
+  auto m = match_and_log({"barfoo", "fbar", "foo/bar", "foo/fbar", "foo/foobar",
+                          "foo/foo_bar", "foo/foo_bar_test", "foo/foo_test_bar",
+                          "foo/FooBar", "foo/abar", "foo/qux", "foob/ar"},
+                         "fb");
+
+  m.assert_not_matched("barfoo");
+  m.assert_matched("fbar");
+  m.assert_matched("foo/bar");
+  m.assert_matched("foo/fbar");
+  m.assert_matched("foo/foobar");
+  m.assert_matched("foo/foo_bar");
+  m.assert_matched("foo/foo_bar_test");
+  m.assert_matched("foo/foo_test_bar");
+  m.assert_matched("foo/FooBar");
+  m.assert_matched("foo/abar");
+  m.assert_not_matched("foo/qux");
+  m.assert_matched("foob/ar");
+
   // "fbar" should rank highest due to the query being a full prefix.
-  assert_match_index("fbar", 0);
+  m.assert_match_index("fbar", 0);
   // "foo/fbar" should rank next highest due to the query being a full prefix,
   // but further away from cur_file (the empty string).
-  assert_match_index("foo/fbar", 1);
+  m.assert_match_index("foo/fbar", 1);
   // "foo/foo_bar" and "foo/FooBar" should both rank next highest due to being
   // detectable word boundary matches, though it's unspecified which of the two
   // is higher.
-  assert_better_match("foo/fbar", "foo/foo_bar");
-  assert_better_match("foo/fbar", "foo/FooBar");
+  m.assert_better_match("foo/fbar", "foo/foo_bar");
+  m.assert_better_match("foo/fbar", "foo/FooBar");
   // "foo/foo_bar_test" should rank below either of the above since there are
   // more trailing unmatched characters.
-  assert_better_match("foo/foo_bar", "foo/foo_bar_test");
-  assert_better_match("foo/FooBar", "foo/foo_bar_test");
+  m.assert_better_match("foo/foo_bar", "foo/foo_bar_test");
+  m.assert_better_match("foo/FooBar", "foo/foo_bar_test");
   // "foo/foo_bar_test" should rank above "foo/foo_test_bar" since its matched
   // characters are in consecutive words.
-  assert_better_match("foo/foo_bar_test", "foo/foo_test_bar");
+  m.assert_better_match("foo/foo_bar_test", "foo/foo_test_bar");
   // "foo/bar" should rank below all of the above since it breaks the match
   // across multiple path components.
-  assert_better_match("foo/foo_test_bar", "foo/bar");
+  m.assert_better_match("foo/foo_test_bar", "foo/bar");
   // "foo/foobar" should rank below all of the above since the 'b' is not a
   // detectable word boundary match.
-  assert_better_match("foo/bar", "foo/foobar");
+  m.assert_better_match("foo/bar", "foo/foobar");
   // "foo/abar" and "foob/ar" should rank lowest since the matched 'b' isn't
   // even at the beginning of the filename in either case, though it's
   // unspecified which of the two is higher.
-  assert_better_match("foo/bar", "foo/abar");
-  assert_better_match("foo/bar", "foob/ar");
+  m.assert_better_match("foo/bar", "foo/abar");
+  m.assert_better_match("foo/bar", "foob/ar");
 }
 
+void test_special_paths() {
+  auto m = match_and_log({"", "/", "a/", "/a"}, "a");
+
+  m.assert_not_matched("");
+  m.assert_not_matched("/");
+  m.assert_matched("a/");
+  m.assert_matched("/a");
+}
+
+template <typename F>
+size_t run_test(F const& f) {
+  try {
+    std::printf("*** Test started\n");
+    f();
+    std::printf("*** Test passed\n");
+    return 0;
+  } catch (std::exception const& ex) {
+    std::printf("*** Test failed: %s\n", ex.what());
+    return 1;
+  }
+}
+
+int run_all_tests() {
+  size_t failed_tests = 0;
+  failed_tests += run_test(test_match_order);
+  failed_tests += run_test(test_special_paths);
+  if (failed_tests == 0) {
+    std::printf("*** All tests passed\n");
+  } else {
+    std::printf("*** %zu tests failed\n", failed_tests);
+  }
+  return failed_tests == 0 ? 0 : 1;
+}
+
+}  // namespace testing
 }  // namespace cpsm
 
 int main(int argc, char** argv) {
-  try {
-    cpsm::test_match_order();
-    std::printf("PASS\n");
-    return 0;
-  } catch (std::exception const& ex) {
-    std::fprintf(stderr, "FAIL: %s\n", ex.what());
-    return 1;
-  }
+  return cpsm::testing::run_all_tests();
 }
