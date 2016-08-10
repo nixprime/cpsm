@@ -53,6 +53,16 @@ Requirements
 
 - Optional, required for Unicode support: ICU (Ubuntu: package `libicu-dev`).
 
+Python 3 Support
+----------------
+
+If your Vim is compiled against Python 3 instead (`+python3` flag) the install
+script should detect this in most cases and everything should just work. You may
+need different python headers installed (e.g. `python3-dev` on Ubuntu).
+
+If the detection does not work for any reason you can set `PY3=ON` or `PY3=OFF`
+as appropriate when running `./install.sh` to override it.
+
 Installation
 ------------
 
