@@ -19,12 +19,6 @@ set(Boost_USE_MULTITHREADED ON)
 find_package(Boost REQUIRED COMPONENTS program_options)
 include_directories(${Boost_INCLUDE_DIRS})
 
-find_package(GooglePerfTools)
-if(GOOGLE_PERFTOOLS_FOUND)
-  include_directories(${GOOGLE_PERFTOOLS_INCLUDE_DIR})
-  add_definitions(-DCPSM_CONFIG_HAVE_GOOGLE_PERFTOOLS=1)
-endif()
-
 find_package(ICU)
 if(ICU_FOUND)
   include_directories(${ICU_INCLUDE_DIRS})
