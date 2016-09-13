@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 2.8.8)
 
 project(cpsm)
 option(PY3 "Build for python3 instead of python2." OFF)
@@ -28,12 +28,12 @@ endif()
 if(PY3)
     set(Python_ADDITIONAL_VERSIONS 3.5 3.4 3.3)
     find_package(PythonInterp 3 REQUIRED)
-    find_package(PythonLibs 3 REQUIRED)
 else()
     set(Python_ADDITIONAL_VERSIONS 2.7 2.6)
-    find_package(PythonLibrary REQUIRED)
+    find_package(PythonInterp REQUIRED)
 endif()
-include_directories(${PYTHON_INCLUDE_PATH})
+find_package(PythonLibsCustom REQUIRED)
+include_directories(${PYTHON_INCLUDE_DIRS})
 
 find_package(Threads REQUIRED)
 
