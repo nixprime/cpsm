@@ -1,0 +1,28 @@
+# Language must be "generic" to get minimal Trusty image.
+language: generic
+
+env:
+  - TEST_PY=py2
+  - TEST_PY=py3
+
+os:
+  - linux
+  - osx
+
+# Need Trusty for version of GCC that supports C++11.
+dist: trusty
+sudo: required
+addons:
+  apt:
+    packages:
+      - cmake
+      - libboost-dev
+      - libboost-program-options-dev
+      - python-dev
+      - python3-dev
+
+osx_image: xcode7
+
+install: ./.travis/install.sh
+
+script: ./.travis/script.sh
