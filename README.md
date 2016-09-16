@@ -1,6 +1,8 @@
 cpsm
 ====
 
+[![Build Status](https://travis-ci.org/nixprime/cpsm.svg?branch=master)](https://travis-ci.org/nixprime/cpsm)
+
 cpsm is a matcher for [CtrlP][]. Although it supports all kinds of queries, it
 is highly optimized for file paths (and, to a lesser extent, similar strings
 like identifiers in source code).
