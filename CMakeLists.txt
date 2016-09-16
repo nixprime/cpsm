@@ -15,15 +15,11 @@ else()
 endif()
 set(CMAKE_MACOSX_RPATH 1)
 
+find_package(Threads REQUIRED)
+
 set(Boost_USE_MULTITHREADED ON)
 find_package(Boost REQUIRED COMPONENTS program_options)
 include_directories(${Boost_INCLUDE_DIRS})
-
-find_package(ICU)
-if(ICU_FOUND)
-  include_directories(${ICU_INCLUDE_DIRS})
-  add_definitions(-DCPSM_CONFIG_ICU=1)
-endif()
 
 if(PY3)
     set(Python_ADDITIONAL_VERSIONS 3.5 3.4 3.3)
@@ -35,7 +31,11 @@ endif()
 find_package(PythonLibsCustom REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
 
-find_package(Threads REQUIRED)
+find_package(ICU)
+if(ICU_FOUND)
+  include_directories(${ICU_INCLUDE_DIRS})
+  add_definitions(-DCPSM_CONFIG_ICU=1)
+endif()
 
 add_library(cpsm_core src/str_util.cc)
 if(ICU_FOUND)
