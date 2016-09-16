@@ -38,8 +38,14 @@ endif
 
 let s:script_dir = escape(expand('<sfile>:p:h'), '\')
 
+let s:cpsm_python3 = 0
 if has('python3')
-  execute 'py3file ' . s:script_dir . '/cpsm.py'
+  try
+    execute 'py3file ' . s:script_dir . '/cpsm.py'
+    let s:cpsm_python3 = 1
+  catch
+    execute 'pyfile ' . s:script_dir . '/cpsm.py'
+  endtry
 else
   execute 'pyfile ' . s:script_dir . '/cpsm.py'
 endif
@@ -53,7 +59,7 @@ function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
     let s:regexes = []
   else
     let s:match_crfile = exists('g:ctrlp_match_current_file') ? g:ctrlp_match_current_file : 0
-    if has('python3')
+    if has('python3') && s:cpsm_python3
       py3 ctrlp_match()
     else
       py ctrlp_match()
