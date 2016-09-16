@@ -37,23 +37,49 @@ if !exists('g:cpsm_unicode')
 endif
 
 let s:script_dir = escape(expand('<sfile>:p:h'), '\')
-
+" s:status is:
+" - 0: no Python support, or module loading failed for other reasons
+" - 1: cpsm module built with incompatible version of Python
+" - 2: cpsm module usable with Python 2
+" - 3: cpsm module usable with Python 3
+let s:status = 0
 if has('python3')
-  execute 'py3file ' . s:script_dir . '/cpsm.py'
-else
-  execute 'pyfile ' . s:script_dir . '/cpsm.py'
+  try
+    execute 'py3file ' . s:script_dir . '/cpsm.py'
+    let s:status = 3
+  catch
+    " Ideally we'd check specifically for the exception
+    " 'ImportError: dynamic module does not define module export function',
+    " but Vim's handling of multiline exceptions seems to be completely
+    " broken.
+    if !has('python')
+      let s:status = 1
+    endif
+  endtry
+endif
+if s:status == 0 && has('python')
+  try
+    execute 'pyfile ' . s:script_dir . '/cpsm.py'
+    let s:status = 2
+  catch
+    let s:status = 1
+  endtry
 endif
 
 function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
   if !has('python3') && !has('python')
     return ['ERROR: cpsm requires Vim built with Python or Python3 support']
+  elseif s:status == 0
+    return ['ERROR: failed to load cpsm module']
+  elseif s:status == 1
+    return ['ERROR: cpsm built with version of Python not supported by Vim']
   endif
   if empty(a:str) && g:cpsm_match_empty_query == 0
     let s:results = a:items[0:(a:limit)]
     let s:regexes = []
   else
     let s:match_crfile = exists('g:ctrlp_match_current_file') ? g:ctrlp_match_current_file : 0
-    if has('python3')
+    if s:status == 3
       py3 ctrlp_match()
     else
       py ctrlp_match()
