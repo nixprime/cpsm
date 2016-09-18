@@ -69,8 +69,9 @@ int main(int argc, char** argv) {
       query, mopts, cpsm::source_from_range<cpsm::StringRefItem>(lines.cbegin(),
                                                                  lines.cend()),
       [&](cpsm::StringRefItem item, cpsm::MatchInfo const* info) {
-        std::cout << item.item() << " (score: " << info->score() << ") ("
-                  << info->score_debug_string() << std::endl;
+        std::cout << item.item() << "\n- score: " << info->score() << "; "
+                  << info->score_debug_string() << "\n- match positions: "
+                  << cpsm::str_join(info->match_positions(), ", ") << std::endl;
       });
 
   return 0;
