@@ -154,6 +154,26 @@ using CpsmItem = typename PyListCtrlPMatchSourceState<T>::Item;
 
 extern "C" {
 
+constexpr char CTRLP_MATCH_DOC[] =
+"ctrlp_match(\n"
+"    items, query, limit=-1, mmode=None, ispath=False, crfile=None,\n"
+"    highlight_mode=None, match_crfile=False, max_threads=0,\n"
+"    query_inverting_delimiter=None, unicode=False)\n"
+"\n"
+"Returns a tuple `(results, regexes)` containing information about the items\n"
+"in `items` that match `query`, in order of descending match quality.\n"
+"\n"
+"Options:\n"
+"limit -- if positive, the maximum number of results to return\n"
+"mmode -- CtrlP match mode (default 'full-line', i.e. full path mode)\n"
+"ispath -- if true, all items are paths\n"
+"crfile -- if set, the currently open file\n"
+"highlight_mode -- controls `regexes`, see README\n"
+"match_crfile -- if false, never match `crfile`\n"
+"max_threads -- if positive, limit on the number of matcher threads\n"
+"query_inverting_delimiter -- see README\n"
+"unicode -- if true, all items are UTF-8-encoded";
+
 static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
                                   PyObject* kwargs) {
   static char const* kwlist[] = {"items", "query", "limit", "mmode", "ispath",
@@ -180,7 +200,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
   Py_ssize_t query_inverting_delimiter_size = 0;
   int unicode = 0;
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwargs, "Os#|is#is#s#iis#i", const_cast<char**>(kwlist),
+          args, kwargs, "Os#|iz#iz#z#iiz#i", const_cast<char**>(kwlist),
           &items_obj, &query_data, &query_size, &limit_int, &mmode_data,
           &mmode_size, &is_path, &crfile_data, &crfile_size,
           &highlight_mode_data, &highlight_mode_size, &match_crfile,
@@ -304,8 +324,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
 
 static PyMethodDef cpsm_py_methods[] = {
     {"ctrlp_match", reinterpret_cast<PyCFunction>(cpsm_ctrlp_match),
-     METH_VARARGS | METH_KEYWORDS,
-     "Match strings with a CtrlP-compatible interface"},
+     METH_VARARGS | METH_KEYWORDS, CTRLP_MATCH_DOC},
     {nullptr, nullptr, 0, nullptr}};
 
 #if PY_MAJOR_VERSION >= 3
