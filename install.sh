@@ -41,8 +41,8 @@ else
     esac
 fi
 
-rm -rf bin build
-mkdir -p build
+rm -rf bin/* build/*
+mkdir -p bin build
 (
     cd build
     cmake -DPY3:BOOL=${PY3} ..
