@@ -42,8 +42,6 @@ def ctrlp_match():
                 map(_escape_and_quote, results)))
         vim.command("let s:regexes = [%s]" % ",".join(
                 map(_escape_and_quote, regexes)))
-        for r in regexes:
-            print(r)
     except Exception as ex:
         vim.command("let s:results = [%s]" % _escape_and_quote(
                 "ERROR: " + str(ex)))
