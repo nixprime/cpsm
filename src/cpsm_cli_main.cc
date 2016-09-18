@@ -66,8 +66,8 @@ int main(int argc, char** argv) {
       cpsm::Options().set_crfile(crfile).set_limit(limit).set_want_match_info(
           true);
   cpsm::for_each_match<cpsm::StringRefItem>(
-      query, mopts,
-      cpsm::range_source<cpsm::StringRefItem>(lines.cbegin(), lines.cend()),
+      query, mopts, cpsm::source_from_range<cpsm::StringRefItem>(lines.cbegin(),
+                                                                 lines.cend()),
       [&](cpsm::StringRefItem item, cpsm::MatchInfo const* info) {
         std::cout << item.item() << " (score: " << info->score() << ") ("
                   << info->score_debug_string() << std::endl;

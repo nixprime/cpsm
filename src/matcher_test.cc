@@ -96,7 +96,7 @@ Matches match_and_log(std::initializer_list<boost::string_ref> items,
   Matches m;
   for_each_match<StringRefItem>(
       query, Options().set_want_match_info(true),
-      range_source<StringRefItem>(begin(items), end(items)),
+      source_from_range<StringRefItem>(begin(items), end(items)),
       [&](StringRefItem item, MatchInfo const* info) {
         std::printf("Matched %s (%s)\n", item.item().data(),
                     info->score_debug_string().c_str());

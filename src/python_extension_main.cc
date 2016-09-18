@@ -40,100 +40,198 @@ struct PyObjectDeleter {
 // Reference-owning, self-releasing PyObject smart pointer.
 typedef std::unique_ptr<PyObject, PyObjectDeleter> PyObjPtr;
 
-// Item type that wraps another, and also includes a borrowed pointer to a
-// Python object.
-template <typename InnerItem>
+// Wrappers around Python 2/3 string type distinctions.
+
+inline bool PyVimString_AsStringAndSize(PyObject* obj, char** data,
+                                        Py_ssize_t* size) {
+#if PY_MAJOR_VERSION >= 3
+  *data = PyUnicode_AsUTF8AndSize(obj, size);
+  return *data != nullptr;
+#else
+  return PyString_AsStringAndSize(obj, data, size) >= 0;
+#endif
+}
+
+inline PyObject* PyVimString_FromStringAndSize(char const* data,
+                                               Py_ssize_t size) {
+#if PY_MAJOR_VERSION >= 3
+  return PyUnicode_FromStringAndSize(data, size);
+#else
+  return PyString_FromStringAndSize(data, size);
+#endif
+}
+
+// Item type that wraps another, and also includes a pointer to a Python
+// object.
+template <typename InnerItem, bool IsOwned>
 struct PyObjItem {
+  using Obj = typename std::conditional<IsOwned, PyObjPtr, PyObject*>::type;
+
   InnerItem inner;
-  PyObject* obj;
+  Obj obj;
 
   PyObjItem() {}
-  explicit PyObjItem(InnerItem inner, PyObject* const obj)
-      : inner(std::move(inner)), obj(obj) {}
+  explicit PyObjItem(InnerItem inner, Obj obj)
+      : inner(std::move(inner)), obj(std::move(obj)) {}
 
   boost::string_ref match_key() const { return inner.match_key(); }
   boost::string_ref sort_key() const { return inner.sort_key(); }
 };
 
+// Iterators do not necessarily hold a reference on iterated values, so we must
+// do so.
 template <typename MatchMode>
-class PyListCtrlPMatchSourceState;
+using PyIterCtrlPItem =
+    PyObjItem<cpsm::CtrlPItem<cpsm::StringRefItem, MatchMode>,
+              /* IsOwned = */ true>;
 
-// Thread-safe match source that batches items from a Python list protected by
-// a std::mutex, templated on CtrlP match mode.
+// Thread-safe item source that batches items from a Python iterator.
+template <typename MatchMode>
+class PyIterCtrlPMatchSource {
+ public:
+  using Item = PyIterCtrlPItem<MatchMode>;
+
+  explicit PyIterCtrlPMatchSource(PyObject* const iter) : iter_(iter) {
+    if (!PyIter_Check(iter)) {
+      throw cpsm::Error("input is not iterable");
+    }
+  }
+
+  bool fill(std::vector<Item>& items) {
+    std::lock_guard<std::mutex> lock(mu_);
+    if (done_) {
+      return false;
+    }
+    auto const add_item = [&](PyObjPtr item_obj) {
+      if (item_obj == nullptr) {
+        return false;
+      }
+      char* item_data;
+      Py_ssize_t item_size;
+      if (!PyVimString_AsStringAndSize(item_obj.get(), &item_data,
+                                       &item_size)) {
+        return false;
+      }
+      items.emplace_back(
+          cpsm::CtrlPItem<cpsm::StringRefItem, MatchMode>(
+              (cpsm::StringRefItem(boost::string_ref(item_data, item_size)))),
+          std::move(item_obj));
+      return true;
+    };
+    for (Py_ssize_t i = 0; i < batch_size(); i++) {
+      if (!add_item(PyObjPtr(PyIter_Next(iter_)))) {
+        done_ = true;
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static constexpr Py_ssize_t batch_size() { return 512; }
+
+ private:
+  std::mutex mu_;
+  PyObject* const iter_;
+  bool done_ = false;
+};
+
+// Lists hold references on their elements, so we can use borrowed references.
+template <typename MatchMode>
+using PyListCtrlPItem =
+    PyObjItem<cpsm::CtrlPItem<cpsm::StringRefItem, MatchMode>,
+              /* IsOwned = */ false>;
+
+// Thread-safe item source that batches items from a Python list.
 template <typename MatchMode>
 class PyListCtrlPMatchSource {
  public:
-  typedef typename PyListCtrlPMatchSourceState<MatchMode>::Item Item;
+  using Item = PyListCtrlPItem<MatchMode>;
 
-  explicit PyListCtrlPMatchSource(PyListCtrlPMatchSourceState<MatchMode>& state)
-      : state_(state) {}
-
-  bool operator()(std::vector<Item>& items) { return state_(items); }
-
- private:
-  PyListCtrlPMatchSourceState<MatchMode>& state_;
-};
-
-template <typename MatchMode>
-class PyListCtrlPMatchSourceState {
- public:
-  typedef PyObjItem<cpsm::CtrlPItem<cpsm::StringRefItem, MatchMode>> Item;
-
-  static constexpr Py_ssize_t BATCH_SIZE = 512;
-
-  explicit PyListCtrlPMatchSourceState(PyObject* const list) : list_(list) {
+  explicit PyListCtrlPMatchSource(PyObject* const list) : list_(list) {
     size_ = PyList_Size(list);
     if (size_ < 0) {
       throw cpsm::Error("input is not a list");
     }
   }
 
-  bool operator()(std::vector<Item>& items) {
+  bool fill(std::vector<Item>& items) {
     std::lock_guard<std::mutex> lock(mu_);
-    if (have_python_exception_) {
+    if (done_) {
       return false;
     }
-    Py_ssize_t max = i_ + BATCH_SIZE;
-    if (max > size_) {
-      max = size_;
-    }
-    items.reserve(max - i_);
-    for (; i_ < max; i_++) {
-      PyObject* const item_obj = PyList_GetItem(list_, i_);
-      if (!item_obj) {
-        have_python_exception_ = true;
+    auto const add_item = [&](PyObject* item_obj) {
+      if (item_obj == nullptr) {
         return false;
       }
       char* item_data;
       Py_ssize_t item_size;
-#if PY_MAJOR_VERSION >= 3
-      item_data = PyUnicode_AsUTF8AndSize(item_obj, &item_size);
-      if (!item_data)
-#else
-      if (PyString_AsStringAndSize(item_obj, &item_data, &item_size) < 0)
-#endif
-      {
-        have_python_exception_ = true;
+      if (!PyVimString_AsStringAndSize(item_obj, &item_data, &item_size)) {
         return false;
       }
       items.emplace_back(
           cpsm::CtrlPItem<cpsm::StringRefItem, MatchMode>(
               (cpsm::StringRefItem(boost::string_ref(item_data, item_size)))),
           item_obj);
+      return true;
+    };
+    Py_ssize_t const max = std::min(i_ + batch_size(), size_);
+    for (; i_ < max; i_++) {
+      if (!add_item(PyList_GetItem(list_, i_))) {
+        done_ = true;
+        return false;
+      }
     }
     return i_ != size_;
   }
 
-  PyListCtrlPMatchSource<MatchMode> get_functor() {
-    return PyListCtrlPMatchSource<MatchMode>(*this);
-  }
+  static constexpr Py_ssize_t batch_size() { return 512; }
 
  private:
   std::mutex mu_;
   PyObject* const list_;
   Py_ssize_t i_ = 0;
-  Py_ssize_t size_;
-  bool have_python_exception_ = false;
+  Py_ssize_t size_ = 0;
+  bool done_ = false;
+};
+
+// `dst` must be a functor compatible with signature `void(boost::string_ref
+// item, boost::string_ref match_key, PyObject* obj, cpsm::MatchInfo* info)`.
+template <typename Sink>
+void for_each_pyctrlp_match(boost::string_ref const query,
+                            cpsm::Options const& opts,
+                            cpsm::CtrlPMatchMode const match_mode,
+                            PyObject* const items_iter, Sink&& dst) {
+  bool const is_list = PyList_Check(items_iter);
+#define DO_MATCH_WITH(MMODE)                                                   \
+  if (is_list) {                                                               \
+    cpsm::for_each_match<PyListCtrlPItem<MMODE>>(                              \
+        query, opts, PyListCtrlPMatchSource<MMODE>(items_iter),                \
+        [&](PyListCtrlPItem<MMODE> const& item, cpsm::MatchInfo* const info) { \
+          dst(item.inner.inner.item(), item.match_key(), item.obj, info);      \
+        });                                                                    \
+  } else {                                                                     \
+    cpsm::for_each_match<PyIterCtrlPItem<MMODE>>(                              \
+        query, opts, PyIterCtrlPMatchSource<MMODE>(items_iter),                \
+        [&](PyIterCtrlPItem<MMODE> const& item, cpsm::MatchInfo* const info) { \
+          dst(item.inner.inner.item(), item.match_key(), item.obj.get(),       \
+              info);                                                           \
+        });                                                                    \
+  }
+  switch (match_mode) {
+    case cpsm::CtrlPMatchMode::FULL_LINE:
+      DO_MATCH_WITH(cpsm::FullLineMatch);
+      break;
+    case cpsm::CtrlPMatchMode::FILENAME_ONLY:
+      DO_MATCH_WITH(cpsm::FilenameOnlyMatch);
+      break;
+    case cpsm::CtrlPMatchMode::FIRST_NON_TAB:
+      DO_MATCH_WITH(cpsm::FirstNonTabMatch);
+      break;
+    case cpsm::CtrlPMatchMode::UNTIL_LAST_TAB:
+      DO_MATCH_WITH(cpsm::UntilLastTabMatch);
+      break;
+  }
+#undef DO_MATCH_WITH
 };
 
 unsigned int get_nr_threads(unsigned int const max_threads) {
@@ -146,9 +244,6 @@ unsigned int get_nr_threads(unsigned int const max_threads) {
   }
   return nr_threads;
 }
-
-template <typename T>
-using CpsmItem = typename PyListCtrlPMatchSourceState<T>::Item;
 
 }  // namespace
 
@@ -237,46 +332,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
             .set_want_match_info(true);
     boost::string_ref const highlight_mode(highlight_mode_data,
                                            highlight_mode_size);
-    std::vector<PyObject*> matched_objs;
-    std::vector<std::string> highlight_regexes;
-    auto const write_match =
-        [&](boost::string_ref const item, boost::string_ref const match_key,
-            PyObject* const obj, cpsm::MatchInfo* const info) {
-          matched_objs.push_back(obj);
-          auto match_positions = info->match_positions();
-          // Adjust match positions to account for substringing.
-          std::size_t const delta = match_key.data() - item.data();
-          for (auto& pos : match_positions) {
-            pos += delta;
-          }
-          cpsm::get_highlight_regexes(highlight_mode, item, match_positions,
-                                      highlight_regexes);
-        };
-#define DO_MATCH_WITH_MMODE(MMODE)                                          \
-  cpsm::for_each_match<CpsmItem<MMODE>>(                                    \
-      query, mopts,                                                         \
-      PyListCtrlPMatchSourceState<MMODE>(items_obj).get_functor(),          \
-      [&](CpsmItem<MMODE> const& item, cpsm::MatchInfo* const info) {       \
-    write_match(item.inner.inner.item(), item.match_key(), item.obj, info); \
-      });
-    switch (cpsm::parse_ctrlp_match_mode(
-        boost::string_ref(mmode_data, mmode_size))) {
-      case cpsm::CtrlPMatchMode::FULL_LINE:
-        DO_MATCH_WITH_MMODE(cpsm::FullLineMatch);
-        break;
-      case cpsm::CtrlPMatchMode::FILENAME_ONLY:
-        DO_MATCH_WITH_MMODE(cpsm::FilenameOnlyMatch);
-        break;
-      case cpsm::CtrlPMatchMode::FIRST_NON_TAB:
-        DO_MATCH_WITH_MMODE(cpsm::FirstNonTabMatch);
-        break;
-      case cpsm::CtrlPMatchMode::UNTIL_LAST_TAB:
-        DO_MATCH_WITH_MMODE(cpsm::UntilLastTabMatch);
-        break;
-    }
-#undef DO_MATCH_WITH_MMODE
 
-    // Translate matches back to Python.
     PyObjPtr output_tuple(PyTuple_New(2));
     if (!output_tuple) {
       return nullptr;
@@ -285,11 +341,25 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     if (!matches_list) {
       return nullptr;
     }
-    for (PyObject* const match_obj : matched_objs) {
-      if (PyList_Append(matches_list.get(), match_obj) < 0) {
-        return nullptr;
-      }
-    }
+    std::vector<std::string> highlight_regexes;
+    for_each_pyctrlp_match(
+        query, mopts,
+        cpsm::parse_ctrlp_match_mode(boost::string_ref(mmode_data, mmode_size)),
+        items_obj,
+        [&](boost::string_ref const item, boost::string_ref const match_key,
+            PyObject* const obj, cpsm::MatchInfo* const info) {
+          if (PyList_Append(matches_list.get(), obj) < 0) {
+            throw cpsm::Error("match appending failed");
+          }
+          auto match_positions = info->match_positions();
+          // Adjust match positions to account for substringing.
+          std::size_t const delta = match_key.data() - item.data();
+          for (auto& pos : match_positions) {
+            pos += delta;
+          }
+          cpsm::get_highlight_regexes(highlight_mode, item, match_positions,
+                                      highlight_regexes);
+        });
     if (PyTuple_SetItem(output_tuple.get(), 0, matches_list.release())) {
       return nullptr;
     }
@@ -299,12 +369,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     }
     for (auto const& regex : highlight_regexes) {
       PyObjPtr regex_str(
-#if PY_MAJOR_VERSION >= 3
-          PyUnicode_FromStringAndSize(regex.data(), regex.size())
-#else
-          PyString_FromStringAndSize(regex.data(), regex.size())
-#endif
-      );
+          PyVimString_FromStringAndSize(regex.data(), regex.size()));
       if (!regex_str) {
         return nullptr;
       }

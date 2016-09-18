@@ -106,7 +106,7 @@ namespace detail {
 template <typename PathTraits, typename StringTraits, typename Item,
           typename Source, typename Sink>
 void for_each_match(boost::string_ref const query, Options const& opts,
-                    Source const& src, Sink const& dst);
+                    Source&& src, Sink&& dst);
 
 }  // namespace detail
 
@@ -123,11 +123,13 @@ void for_each_match(boost::string_ref const query, Options const& opts,
 //   otherwise unable to order two matched items, it will prefer the one whose
 //   `sort_key` compares lower.
 //
-// `src` must be a functor compatible with signature
-// `bool(std::vector<Item>&)`. `src` inserts new unmatched items to the given
-// initially-empty vector and returns true iff it may produce more unmatched
-// items in the future. If `opts.nr_threads() > 1`, `src` must be thread-safe.
-// Each matcher thread receives a *copy* of `src`.
+// `src` must have the following member functions:
+// - `bool fill(std::vector<Item>& items)`, which inserts new unmatched items
+// into `items` (which must initially be empty) and returns true iff it may
+// produce more unmatched items in the future.
+// - `size_t batch_size() const`, which returns an optional upper bound on the
+// number of items inserted by each call to `fill`.
+// If `opts.nr_threads() > 1`, `src` must be thread-safe.
 //
 // `dst` must be a functor compatible with signature `void(Item& item,
 // MatchInfo const* match_info)`, where `item` is a matched item and
@@ -150,22 +152,22 @@ void for_each_match(boost::string_ref const query, Options const& opts,
 //       });
 template <typename Item, typename Source, typename Sink>
 void for_each_match(boost::string_ref const query, Options const& opts,
-                    Source const& src, Sink const& dst) {
+                    Source&& src, Sink&& dst) {
   if (opts.path()) {
     if (opts.unicode()) {
       detail::for_each_match<PlatformPathTraits, Utf8StringTraits, Item>(
-          query, opts, src, dst);
+          query, opts, std::forward<Source>(src), std::forward<Sink>(dst));
     } else {
       detail::for_each_match<PlatformPathTraits, SimpleStringTraits, Item>(
-          query, opts, src, dst);
+          query, opts, std::forward<Source>(src), std::forward<Sink>(dst));
     }
   } else {
     if (opts.unicode()) {
       detail::for_each_match<NonPathTraits, Utf8StringTraits, Item>(
-          query, opts, src, dst);
+          query, opts, std::forward<Source>(src), std::forward<Sink>(dst));
     } else {
       detail::for_each_match<NonPathTraits, SimpleStringTraits, Item>(
-          query, opts, src, dst);
+          query, opts, std::forward<Source>(src), std::forward<Sink>(dst));
     }
   }
 }
@@ -192,7 +194,7 @@ class RangeSource {
   explicit RangeSource(It first, It last)
       : it_(std::move(first)), last_(std::move(last)) {}
 
-  bool operator()(std::vector<Item>& items) {
+  bool fill(std::vector<Item>& items) {
     if (it_ == last_) {
       return false;
     }
@@ -201,12 +203,15 @@ class RangeSource {
     return it_ != last_;
   }
 
+  static constexpr size_t batch_size() { return 1; }
+
  private:
   It it_;
   It const last_;
 };
+
 template <typename Item, typename It>
-RangeSource<Item, It> range_source(It first, It last) {
+RangeSource<Item, It> source_from_range(It first, It last) {
   return RangeSource<Item, It>(std::move(first), std::move(last));
 }
 
@@ -234,7 +239,7 @@ struct Matched {
 template <typename PathTraits, typename StringTraits, typename Item,
           typename Source, typename Sink>
 void for_each_match(boost::string_ref const query, Options const& opts,
-                    Source const& src, Sink const& dst) {
+                    Source&& src, Sink&& dst) {
   MatcherOptions mopts;
   mopts.crfile = opts.crfile();
   mopts.match_crfile = opts.match_crfile();
@@ -245,18 +250,18 @@ void for_each_match(boost::string_ref const query, Options const& opts,
   threads.reserve(opts.nr_threads());
   for (unsigned int i = 0; i < opts.nr_threads(); i++) {
     threads.emplace_back([&, i] {
-      Source src_copy = src;
       std::vector<Matched<Item>> matches;
       std::vector<Item> batch;
       // If a limit exists, each thread should only keep that many matches.
       if (opts.limit()) {
         matches.reserve(opts.limit() + 1);
       }
+      batch.reserve(src.batch_size());
       Matcher<PathTraits, StringTraits> matcher(query, mopts);
       bool more;
       do {
         // Collect and match a batch.
-        more = src_copy(batch);
+        more = src.fill(batch);
         for (auto& item : batch) {
           if (matcher.match(item.match_key())) {
             matches.emplace_back(matcher.score(), std::move(item));
