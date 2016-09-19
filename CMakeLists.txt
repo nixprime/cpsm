@@ -44,7 +44,7 @@ endif()
 target_link_libraries(cpsm_core ${CMAKE_THREAD_LIBS_INIT})
 set_target_properties(cpsm_core PROPERTIES COMPILE_FLAGS "-fPIC")
 
-add_library(cpsm_py SHARED src/ctrlp_util.cc src/python_extension_main.cc)
+add_library(cpsm_py SHARED src/ctrlp_util.cc src/python_extension.cc)
 target_link_libraries(cpsm_py cpsm_core ${PYTHON_LIBRARIES})
 if(APPLE)
   set_target_properties(cpsm_py PROPERTIES PREFIX "" SUFFIX ".so")
