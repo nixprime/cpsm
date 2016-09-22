@@ -55,6 +55,17 @@ Requirements
 
 - Optional, required for Unicode support: ICU (Ubuntu: package `libicu-dev`).
 
+Pyenv users on Mac OS X: cpsm requires dynamic Python libraries, which pyenv
+does not build by default. If CMake indicates that it's using static libraries,
+e.g.:
+
+```
+-- Found PythonLibs: /Users/<username>/.pyenv/versions/3.5.2/lib/python3.5/config-3.5m/libpython3.5m.a
+```
+
+Rebuild with dynamic library support by running `env
+PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install <version>`.
+
 Python 3 Support
 ----------------
 
