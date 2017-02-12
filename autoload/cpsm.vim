@@ -74,6 +74,10 @@ function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
   elseif s:status == 1
     return ['ERROR: cpsm built with version of Python not supported by Vim']
   endif
+  let s:regex_line_prefix = '> '
+  if exists('g:ctrlp_line_prefix')
+    let s:regex_line_prefix = g:ctrlp_line_prefix
+  endif
   if empty(a:str) && g:cpsm_match_empty_query == 0
     let s:results = a:items[0:(a:limit)]
     let s:regexes = []

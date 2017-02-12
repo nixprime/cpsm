@@ -36,6 +36,7 @@ def ctrlp_match():
                 match_crfile=int(vim.eval("s:match_crfile")),
                 max_threads=int(vim.eval("g:cpsm_max_threads")),
                 query_inverting_delimiter=vim.eval("g:cpsm_query_inverting_delimiter"),
+                regex_line_prefix=vim.eval("s:regex_line_prefix"),
                 unicode=int(vim.eval("g:cpsm_unicode")))
         # Escape backslashes and ".
         vim.command("let s:results = [%s]" % ",".join(

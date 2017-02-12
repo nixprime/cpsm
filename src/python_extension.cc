@@ -267,6 +267,7 @@ constexpr char CTRLP_MATCH_DOC[] =
 "match_crfile -- if false, never match `crfile`\n"
 "max_threads -- if positive, limit on the number of matcher threads\n"
 "query_inverting_delimiter -- see README\n"
+"regex_line_prefix -- prefix for each regex in `regexes`\n"
 "unicode -- if true, all items are UTF-8-encoded";
 
 static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
@@ -274,7 +275,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
   static char const* kwlist[] = {"items", "query", "limit", "mmode", "ispath",
                                  "crfile", "highlight_mode", "match_crfile",
                                  "max_threads", "query_inverting_delimiter",
-                                 "unicode", nullptr};
+                                 "regex_line_prefix", "unicode", nullptr};
   // Required parameters.
   PyObject* items_obj;
   char const* query_data;
@@ -293,14 +294,17 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
   int max_threads_int = 0;
   char const* query_inverting_delimiter_data = nullptr;
   Py_ssize_t query_inverting_delimiter_size = 0;
+  char const* regex_line_prefix_data = nullptr;
+  Py_ssize_t regex_line_prefix_size = 0;
   int unicode = 0;
   if (!PyArg_ParseTupleAndKeywords(
-          args, kwargs, "Os#|iz#iz#z#iiz#i", const_cast<char**>(kwlist),
+          args, kwargs, "Os#|iz#iz#z#iiz#z#i", const_cast<char**>(kwlist),
           &items_obj, &query_data, &query_size, &limit_int, &mmode_data,
           &mmode_size, &is_path, &crfile_data, &crfile_size,
           &highlight_mode_data, &highlight_mode_size, &match_crfile,
           &max_threads_int, &query_inverting_delimiter_data,
-          &query_inverting_delimiter_size, &unicode)) {
+          &query_inverting_delimiter_size, &regex_line_prefix_data,
+          &regex_line_prefix_size, &unicode)) {
     return nullptr;
   }
 
@@ -357,8 +361,10 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
           for (auto& pos : match_positions) {
             pos += delta;
           }
-          cpsm::get_highlight_regexes(highlight_mode, item, match_positions,
-                                      highlight_regexes);
+          cpsm::get_highlight_regexes(
+              highlight_mode, item, match_positions, highlight_regexes,
+              boost::string_ref(regex_line_prefix_data,
+                                regex_line_prefix_size));
         });
     if (PyTuple_SetItem(output_tuple.get(), 0, matches_list.release())) {
       return nullptr;

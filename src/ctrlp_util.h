@@ -98,7 +98,8 @@ struct CtrlPItem {
 // for the given highlight mode. `positions` must be sorted.
 void get_highlight_regexes(boost::string_ref mode, boost::string_ref item,
                            std::vector<std::size_t> const& positions,
-                           std::vector<std::string>& regexes);
+                           std::vector<std::string>& regexes,
+                           boost::string_ref line_prefix);
 
 }  // namespace cpsm
 
