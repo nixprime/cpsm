@@ -21,8 +21,6 @@ addons:
       - python-dev
       - python3-dev
 
-osx_image: xcode7
-
 install: ./.travis/install.sh
 
 script: ./.travis/script.sh
