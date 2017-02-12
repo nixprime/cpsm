@@ -41,6 +41,7 @@ else
     esac
 fi
 
+cd "$(dirname "${BASH_SOURCE[0]}")"
 rm -rf bin/* build/*
 mkdir -p bin build
 (
