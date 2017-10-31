@@ -74,15 +74,15 @@ def ctrlp_match():
     """
     # TODO: a:regex is unimplemented.
     results, regexes = ctrlp_match_with(
-            items=vim.eval("a:items"), query=vim.eval("a:str"),
-            limit=int(vim.eval("a:limit")), mmode=vim.eval("a:mmode"),
-            ispath=int(vim.eval("a:ispath")), crfile=vim.eval("a:crfile"),
-            highlight_mode=vim.eval("g:cpsm_highlight_mode"),
-            match_crfile=int(vim.eval("s:match_crfile")),
-            max_threads=int(vim.eval("g:cpsm_max_threads")),
-            query_inverting_delimiter=vim.eval("g:cpsm_query_inverting_delimiter"),
-            regex_line_prefix=vim.eval("s:regex_line_prefix"),
-            unicode=int(vim.eval("g:cpsm_unicode")))
+            items=_vim_eval("a:items"), query=_vim_eval("a:str"),
+            limit=int(_vim_eval("a:limit")), mmode=_vim_eval("a:mmode"),
+            ispath=int(_vim_eval("a:ispath")), crfile=_vim_eval("a:crfile"),
+            highlight_mode=_vim_eval("g:cpsm_highlight_mode"),
+            match_crfile=int(_vim_eval("s:match_crfile")),
+            max_threads=int(_vim_eval("g:cpsm_max_threads")),
+            query_inverting_delimiter=_vim_eval("g:cpsm_query_inverting_delimiter"),
+            regex_line_prefix=_vim_eval("s:regex_line_prefix"),
+            unicode=int(_vim_eval("g:cpsm_unicode")))
     vim.command("let s:results = [%s]" % ",".join(
             map(_escape_and_quote, results)))
     vim.command("let s:regexes = [%s]" % ",".join(
