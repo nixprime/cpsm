@@ -17,6 +17,7 @@ from __future__ import print_function
 
 import os
 import sys
+import traceback
 import vim
 
 script_dir = vim.eval("s:script_dir")
@@ -45,8 +46,14 @@ def ctrlp_match():
         vim.command("let s:regexes = [%s]" % ",".join(
                 map(_escape_and_quote, regexes)))
     except Exception as ex:
+        # Log the exception. Unfortunately something CtrlP causes all messages
+        # to be discarded, so this is only visible in Vim verbose logging.
+        print("cpsm error:")
+        traceback.print_exc(file=sys.stdout)
+        # Return a short error message in the results.
         ex_str = str(ex)
-        if "function takes at most" in ex_str:
+        if (sys.exc_info()[0] is TypeError and
+            "function takes at most" in ex_str):
             # Most likely due to a new parameter being added to
             # cpsm_py.ctrlp_match.
             ex_str = "rebuild cpsm by running %s: %s" % (
