@@ -74,21 +74,39 @@ function cpsm#CtrlPMatch(items, str, limit, mmode, ispath, crfile, regex)
   elseif s:status == 1
     return ['ERROR: cpsm built with version of Python not supported by Vim']
   endif
-  let s:regex_line_prefix = '> '
-  if exists('g:ctrlp_line_prefix')
-    let s:regex_line_prefix = g:ctrlp_line_prefix
-  endif
+
   if empty(a:str) && g:cpsm_match_empty_query == 0
     let s:results = a:items[0:(a:limit)]
     let s:regexes = []
   else
     let s:match_crfile = exists('g:ctrlp_match_current_file') ? g:ctrlp_match_current_file : 0
-    if s:status == 3
-      py3 ctrlp_match()
-    else
-      py ctrlp_match()
+    let s:regex_line_prefix = '> '
+    if exists('g:ctrlp_line_prefix')
+      let s:regex_line_prefix = g:ctrlp_line_prefix
     endif
+    let s:input = {
+    \   'items': a:items,
+    \   'query': a:str,
+    \   'limit': a:limit,
+    \   'mmode': a:mmode,
+    \   'ispath': a:ispath,
+    \   'crfile': a:crfile,
+    \   'highlight_mode': g:cpsm_highlight_mode,
+    \   'match_crfile': s:match_crfile,
+    \   'max_threads': g:cpsm_max_threads,
+    \   'query_inverting_delimiter': g:cpsm_query_inverting_delimiter,
+    \   'regex_line_prefix': s:regex_line_prefix,
+    \   'unicode': g:cpsm_unicode,
+    \ }
+    if s:status == 3
+      let s:output = py3eval('_ctrlp_match_evalinput()')
+    else
+      let s:output = pyeval('_ctrlp_match_evalinput()')
+    endif
+    let s:results = s:output[0]
+    let s:regexes = s:output[1]
   endif
+
   call clearmatches()
   " Apply highlight regexes.
   for r in s:regexes
