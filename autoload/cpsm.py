@@ -20,17 +20,11 @@ import sys
 import traceback
 import vim
 
-# Importing neovim succeeds as long as the neovim Python module is installed,
-# whether or not we are actually running under Neovim, so trying and checking
-# for ImportError isn't sufficient.
-in_neovim = int(vim.eval("has('nvim')"))
-if in_neovim:
-    import neovim
-
-def _vim_eval(expr):
-    if in_neovim:
-        return neovim.Nvim.eval(vim, expr)
-    return vim.eval(expr)
+try:
+    _vim_eval = vim.api.eval
+except AttributeError:
+    # vim.api is a neovim feature.
+    _vim_eval = vim.eval
 
 script_dir = _vim_eval("s:script_dir")
 sys.path.append(script_dir)
