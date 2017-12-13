@@ -4,6 +4,21 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+function choose_vim {
+    local vim="${VIM:-}"
+    if [[ -d "${vim}" ]]; then
+        # Assume that this is because install.sh is being executed by vim (see
+        # `:help $VIM`), such that vim is the parent process.
+        vim="$(readlink /proc/${PPID}/exe)"
+        # Note that this can fail if /proc/$PPID/exe doesn't exist (e.g. on Mac
+        # OS X), in which case we fall through to the following.
+    fi
+    if [[ -z "${vim}" ]]; then
+        vim="$(which vim)"
+    fi
+    echo "${vim}"
+}
+
 function vim_has {
     local vim="$1"
     local feature="$2"
@@ -19,10 +34,10 @@ function vim_has {
 }
 
 if [ -z "${PY3+x}" ]; then
-    VIM="${VIM:-vim}"
-    echo "PY3 not specified; inferring Python version from ${VIM}"
-    have_py2=$(vim_has ${VIM} python)
-    have_py3=$(vim_has ${VIM} python3)
+    vim="$(choose_vim)"
+    echo "PY3 not specified; inferring Python version from ${vim}"
+    have_py2="$(vim_has ${vim} python)"
+    have_py3="$(vim_has ${vim} python3)"
     if [ "${have_py3}" -eq "1" ]; then
         echo "Python 3 selected"
         PY3="ON"
