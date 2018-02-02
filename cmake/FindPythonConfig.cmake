@@ -16,7 +16,7 @@ include(FindPackageHandleStandardArgs)
 
 find_package(PythonInterp)
 if(PYTHONINTERP_FOUND)
-  string(CONCAT _Python_config ${PYTHON_EXECUTABLE} "-config")
+  set(_Python_config "${PYTHON_EXECUTABLE}-config")
   execute_process(COMMAND ${_Python_config} "--includes" OUTPUT_VARIABLE PYTHON_COMPILE_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
   execute_process(COMMAND ${_Python_config} "--ldflags" OUTPUT_VARIABLE PYTHON_LINK_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
   string(CONCAT _Python_config_message ${PYTHON_COMPILE_FLAGS} "; " ${PYTHON_LINK_FLAGS})
