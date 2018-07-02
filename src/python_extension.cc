@@ -42,7 +42,7 @@ typedef std::unique_ptr<PyObject, PyObjectDeleter> PyObjPtr;
 
 // Wrappers around Python 2/3 string type distinctions.
 
-inline bool PyVimString_AsStringAndSize(PyObject* obj, const char** data,
+inline bool PyVimString_AsStringAndSize(PyObject* obj, char** data,
                                         Py_ssize_t* size) {
 #if PY_MAJOR_VERSION >= 3
   *data = (char*)PyUnicode_AsUTF8AndSize(obj, size);
@@ -106,7 +106,7 @@ class PyIterCtrlPMatchSource {
       if (item_obj == nullptr) {
         return false;
       }
-      const char* item_data;
+      char* item_data;
       Py_ssize_t item_size;
       if (!PyVimString_AsStringAndSize(item_obj.get(), &item_data,
                                        &item_size)) {
@@ -163,7 +163,7 @@ class PyListCtrlPMatchSource {
       if (item_obj == nullptr) {
         return false;
       }
-      const char* item_data;
+      char* item_data;
       Py_ssize_t item_size;
       if (!PyVimString_AsStringAndSize(item_obj, &item_data, &item_size)) {
         return false;
