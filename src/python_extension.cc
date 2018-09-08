@@ -45,7 +45,7 @@ typedef std::unique_ptr<PyObject, PyObjectDeleter> PyObjPtr;
 inline bool PyVimString_AsStringAndSize(PyObject* obj, char** data,
                                         Py_ssize_t* size) {
 #if PY_MAJOR_VERSION >= 3
-  *data = PyUnicode_AsUTF8AndSize(obj, size);
+  *data = const_cast<char *>(PyUnicode_AsUTF8AndSize(obj, size));
   return *data != nullptr;
 #else
   return PyString_AsStringAndSize(obj, data, size) >= 0;
