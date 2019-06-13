@@ -52,7 +52,6 @@ if(APPLE)
   set_target_properties(cpsm_py PROPERTIES SUFFIX ".so")
 endif()
 install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/autoload)
-install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/bin)
 
 add_executable(cpsm_cli src/cpsm_cli_main.cc)
 target_link_libraries(cpsm_cli cpsm_core ${Boost_PROGRAM_OPTIONS_LIBRARIES})
