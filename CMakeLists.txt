@@ -22,7 +22,7 @@ find_package(Boost REQUIRED COMPONENTS program_options)
 include_directories(${Boost_INCLUDE_DIRS})
 
 if(PY3)
-    set(Python_ADDITIONAL_VERSIONS 3.7 3.6 3.5 3.4 3.3)
+    set(Python_ADDITIONAL_VERSIONS 3.8 3.7 3.6 3.5 3.4 3.3)
     find_package(PythonInterp 3 REQUIRED)
 else()
     set(Python_ADDITIONAL_VERSIONS 2.7 2.6)
