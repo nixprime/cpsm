@@ -24,11 +24,11 @@ if(PYTHONINTERP_FOUND)
   # --embed first and fallback to python3-config --libs (without --embed) if
   # the previous command fails." -
   # https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
-  execute_process(COMMAND ${_Python_config} "--ldflags" "--embed" OUTPUT_VARIABLE PYTHON_LINK_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE PYTHON_EMBED_FAILED)
-  if(PYTHON_EMBED_FAILED)
+  execute_process(COMMAND ${_Python_config} "--ldflags" "--embed" OUTPUT_VARIABLE PYTHON_LINK_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE PYTHON_LINK_FLAGS_EMBED_RESULT)
+  if(NOT PYTHON_LINK_FLAGS_EMBED_RESULT EQUAL 0)
     message(STATUS "python-config failed, retrying without --embed")
     execute_process(COMMAND ${_Python_config} "--ldflags" OUTPUT_VARIABLE PYTHON_LINK_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif(PYTHON_EMBED_FAILED)
+  endif(NOT PYTHON_LINK_FLAGS_EMBED_RESULT EQUAL 0)
   set(_Python_config_message "${PYTHON_COMPILE_FLAGS}; ${PYTHON_LINK_FLAGS}")
   unset(_Python_config)
 else(PYTHONINTERP_FOUND)
