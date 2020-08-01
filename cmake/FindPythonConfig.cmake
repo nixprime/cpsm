@@ -18,9 +18,15 @@ find_package(PythonInterp)
 if(PYTHONINTERP_FOUND)
   set(_Python_config "${PYTHON_EXECUTABLE}-config")
   execute_process(COMMAND ${_Python_config} "--includes" OUTPUT_VARIABLE PYTHON_COMPILE_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+  # "To embed Python into an application, a new --embed option must be passed
+  # to python3-config --libs --embed to get -lpython3.8 (link the application
+  # to libpython). To support both 3.8 and older, try python3-config --libs
+  # --embed first and fallback to python3-config --libs (without --embed) if
+  # the previous command fails." -
+  # https://docs.python.org/3/whatsnew/3.8.html#debug-build-uses-the-same-abi-as-release-build
   execute_process(COMMAND ${_Python_config} "--ldflags" "--embed" OUTPUT_VARIABLE PYTHON_LINK_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE PYTHON_EMBED_FAILED)
   if(PYTHON_EMBED_FAILED)
-    message(STATUS "PythonConfig could not embed Python. (Fine for < Python 3.8)")
+    message(STATUS "python-config failed, retrying without --embed")
     execute_process(COMMAND ${_Python_config} "--ldflags" OUTPUT_VARIABLE PYTHON_LINK_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
   endif(PYTHON_EMBED_FAILED)
   set(_Python_config_message "${PYTHON_COMPILE_FLAGS}; ${PYTHON_LINK_FLAGS}")
