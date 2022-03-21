@@ -317,9 +317,9 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
         throw cpsm::Error(
             "query inverting delimiter must be a single character");
       }
-      query = cpsm::str_join(boost::adaptors::reverse(cpsm::str_split(
-                                 query, query_inverting_delimiter[0])),
-                             "");
+      auto split_words = cpsm::str_split(query, query_inverting_delimiter[0]);
+      std::reverse(std::begin(split_words), std::end(split_words));
+      query = cpsm::str_join(split_words, "");
     }
 
     auto const mopts =
