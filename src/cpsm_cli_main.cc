@@ -19,7 +19,6 @@
 #include <utility>
 #include <vector>
 
-#include <boost/program_options.hpp>
 #if __has_include("string_view")
 #include <string_view>
 using std::string_view;
