@@ -23,7 +23,13 @@
 #include <utility>
 #include <vector>
 
-#include <boost/utility/string_ref.hpp>
+#if __has_include("string_view")
+#include <string_view>
+using std::string_view;
+#else
+#include <experimental/string_view>
+using std::experimental::string_view;
+#endif
 
 #if CPSM_CONFIG_ICU
 #include <unicode/uchar.h>
@@ -49,15 +55,15 @@ std::string str_cat(Args... args) {
 }
 
 // Splits a string into substrings separated by a delimiter.
-std::vector<boost::string_ref> str_split(boost::string_ref str,
+std::vector<string_view> str_split(string_view str,
                                          char const delimiter);
 
 // Joins an iterable over a type that can be stringified through a stringstream
 // with the given separator.
 template <typename T>
-std::string str_join(T const& xs, boost::string_ref const sep) {
+std::string str_join(T const& xs, string_view const sep) {
   std::stringstream ss;
-  boost::string_ref s;
+  string_view s;
   for (auto const& x : xs) {
     ss << s << x;
     s = sep;
@@ -81,15 +87,15 @@ class Error : public std::exception {
 };
 
 // Returns a new `std::string` that is a copy of the data viewed by the given
-// `boost::string_ref`.
-inline std::string copy_string_ref(boost::string_ref const sref) {
+// `string_View`.
+inline std::string copy_string_ref(string_view const sref) {
   return std::string(sref.data(), sref.size());
 }
 
 // Constructs a copy of the range defined by the given iterators over a char[].
 template <typename It>
-boost::string_ref ref_str_iters(It first, It last) {
-  return boost::string_ref(&*first, last - first);
+string_view ref_str_iters(It first, It last) {
+  return string_view(&*first, last - first);
 }
 
 // StringTraits type for paths that are 7-bit clean, which is the common case
@@ -101,7 +107,7 @@ struct SimpleStringTraits {
   // the offset in bytes of the first byte corresponding to `c` in `str` and
   // `len` is its length in bytes.
   template <typename F>
-  static void for_each_char(boost::string_ref const str, F const& f) {
+  static void for_each_char(string_view const str, F const& f) {
     for (std::size_t i = 0, end = str.size(); i < end; i++) {
       f(str[i], i, 1);
     }
@@ -125,7 +131,7 @@ struct SimpleStringTraits {
 };
 
 template <typename StringTraits>
-void decode_to(boost::string_ref const str,
+void decode_to(string_view const str,
                std::vector<typename StringTraits::Char>& chars) {
   chars.reserve(str.size());
   StringTraits::for_each_char(str, [&](typename StringTraits::Char c, int,
@@ -133,7 +139,7 @@ void decode_to(boost::string_ref const str,
 }
 
 template <typename StringTraits>
-std::vector<typename StringTraits::Char> decode(boost::string_ref const str) {
+std::vector<typename StringTraits::Char> decode(string_view const str) {
   std::vector<typename StringTraits::Char> vec;
   decode_to<StringTraits>(str, vec);
   return vec;
@@ -148,7 +154,7 @@ struct Utf8StringTraits {
   typedef char32_t Char;
 
   template <typename F>
-  static void for_each_char(boost::string_ref str, F const& f) {
+  static void for_each_char(string_view str, F const& f) {
     std::size_t pos = 0;
     char32_t b0 = 0;
     // Even though most of this function deals with byte-sized quantities, use
@@ -244,7 +250,7 @@ struct Utf8StringTraits {
   }
 
   template <typename F>
-  static void for_each_char(boost::string_ref str, F const& f) {
+  static void for_each_char(string_view str, F const& f) {
     unimplemented();
   }
 

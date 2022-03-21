@@ -21,7 +21,14 @@
 #include <cstdint>
 #include <vector>
 
-#include <boost/utility/string_ref.hpp>
+#if __has_include("string_view")
+#include <string_view>
+using std::string_view;
+#else
+#include <experimental/string_view>
+using std::experimental::string_view;
+#endif
+
 
 #include "matcher.h"
 #include "par_util.h"
@@ -33,7 +40,7 @@ namespace cpsm {
 struct Options {
  private:
   // The currently open file.
-  boost::string_ref crfile_;
+  string_view crfile_;
 
   // The maximum number of matches to return. If 0, there is no limit.
   std::size_t limit_ = 0;
@@ -55,8 +62,8 @@ struct Options {
   bool want_match_info_ = false;
 
  public:
-  boost::string_ref crfile() const { return crfile_; }
-  Options& set_crfile(boost::string_ref const crfile) {
+  string_view crfile() const { return crfile_; }
+  Options& set_crfile(string_view const crfile) {
     crfile_ = crfile;
     return *this;
   }
@@ -105,7 +112,7 @@ namespace detail {
 
 template <typename PathTraits, typename StringTraits, typename Item,
           typename Source, typename Sink>
-void for_each_match(boost::string_ref const query, Options const& opts,
+void for_each_match(string_view const query, Options const& opts,
                     Source&& src, Sink&& dst);
 
 }  // namespace detail
@@ -116,7 +123,7 @@ void for_each_match(boost::string_ref const query, Options const& opts,
 //
 // `Item` must be a default-constructable, movable type with the following
 // member functions:
-// - `match_key`, which returns a `boost::string_ref` representing the string
+// - `match_key`, which returns a `string_view` representing the string
 //   that the query should match against.
 // - `sort_key`, which returns a value of unspecified type that can be compared
 //   to other values of the same type with operator `<`. When the matcher is
@@ -151,7 +158,7 @@ void for_each_match(boost::string_ref const query, Options const& opts,
 //         std::cout << item.item << std::endl;
 //       });
 template <typename Item, typename Source, typename Sink>
-void for_each_match(boost::string_ref const query, Options const& opts,
+void for_each_match(string_view const query, Options const& opts,
                     Source&& src, Sink&& dst) {
   if (opts.path()) {
     if (opts.unicode()) {
@@ -172,18 +179,18 @@ void for_each_match(boost::string_ref const query, Options const& opts,
   }
 }
 
-// Simple Item type wrapping a `boost::string_ref`.
+// Simple Item type wrapping a `string_view`.
 class StringRefItem {
  public:
   StringRefItem() {}
-  explicit StringRefItem(boost::string_ref const item) : item_(item) {}
+  explicit StringRefItem(string_view const item) : item_(item) {}
 
-  boost::string_ref item() const { return item_; }
-  boost::string_ref match_key() const { return item_; }
-  boost::string_ref sort_key() const { return item_; }
+  string_view item() const { return item_; }
+  string_view match_key() const { return item_; }
+  string_view sort_key() const { return item_; }
 
  private:
-  boost::string_ref item_;
+  string_view item_;
 };
 
 // Thread-unsafe source functor that constructs items from elements of a range
@@ -238,7 +245,7 @@ struct Matched {
 
 template <typename PathTraits, typename StringTraits, typename Item,
           typename Source, typename Sink>
-void for_each_match(boost::string_ref const query, Options const& opts,
+void for_each_match(string_view const query, Options const& opts,
                     Source&& src, Sink&& dst) {
   MatcherOptions mopts;
   mopts.crfile = opts.crfile();

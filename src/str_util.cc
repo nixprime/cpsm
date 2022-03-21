@@ -17,12 +17,12 @@
 
 namespace cpsm {
 
-std::vector<boost::string_ref> str_split(boost::string_ref str,
+std::vector<string_view> str_split(string_view str,
                                          char const delimiter) {
-  std::vector<boost::string_ref> splits;
+  std::vector<string_view> splits;
   while (true) {
     auto const dpos = str.find_first_of(delimiter);
-    if (dpos == boost::string_ref::npos) {
+    if (dpos == string_view::npos) {
       break;
     }
     splits.push_back(str.substr(0, dpos));
