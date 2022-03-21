@@ -6,7 +6,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include_directories(${PROJECT_SOURCE_DIR}/src)
 set(CMAKE_BUILD_TYPE Release)
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang|Intel")
-  add_compile_options(-std=c++0x)
+  add_compile_options(-std=c++17)
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   # Versions of MSVC that support C++11 at all support it by default, so hope
   # for the best...

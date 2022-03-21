@@ -20,7 +20,15 @@
 #include <vector>
 
 #include <boost/program_options.hpp>
-#include <boost/utility/string_ref.hpp>
+#if __has_include("string_view")
+#include <string_view>
+using std::string_view;
+#else
+#include <experimental/string_view>
+using std::experimental::string_view;
+#endif
+
+
 
 #include "api.h"
 #include "str_util.h"

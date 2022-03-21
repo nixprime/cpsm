@@ -46,7 +46,7 @@ typedef std::uint_fast16_t CharCount;
 // Options that apply to all items in a search.
 struct MatcherOptions {
   // The currently open file.
-  boost::string_ref crfile;
+  string_view crfile;
 
   // If false, do not consider the currently open file as a candidate.
   bool match_crfile = false;
@@ -76,7 +76,7 @@ class Matcher : public MatchInfo {
  public:
   typedef typename StringTraits::Char Char;
 
-  explicit Matcher(boost::string_ref const query, MatcherOptions const& opts)
+  explicit Matcher(string_view const query, MatcherOptions const& opts)
       // Queries are smartcased (case-sensitive only if any uppercase appears
       // in the query).
       : query_(decode<StringTraits>(query)),
@@ -99,7 +99,7 @@ class Matcher : public MatchInfo {
   Matcher(Matcher const& other) = delete;
   Matcher& operator=(Matcher const& other) = delete;
 
-  bool match(boost::string_ref const item) {
+  bool match(string_view const item) {
     item_.clear();
     decode_to<StringTraits>(item, item_);
 
