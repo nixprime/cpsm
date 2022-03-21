@@ -28,35 +28,32 @@ using std::string_view;
 using std::experimental::string_view;
 #endif
 
-
-
 #include "api.h"
 #include "str_util.h"
 
-namespace po = boost::program_options;
+#include "cxxopts.hpp"
 
 int main(int argc, char** argv) {
   std::cin.sync_with_stdio(false);
   std::cout.sync_with_stdio(false);
   std::cerr.sync_with_stdio(false);
 
-  po::options_description opts_desc("Options");
-  opts_desc.add_options()
-      ("crfile", po::value<std::string>()->default_value(""),
-       "'currently open file' passed to the matcher")
-      ("limit", po::value<std::size_t>()->default_value(10),
-       "maximum number of matches to return")
-      ("query", po::value<std::string>()->default_value(""),
-       "query to match items against")
+  cxxopts::Options options("Options", "Options for cpsm cli");
+
+  options.add_options()
+      ("crfile", "'currently open file' passed to the matcher",
+       cxxopts::value<std::string>()->default_value(""))
+      ("limit", "maximum number of matches to return",
+       cxxopts::value<std::size_t>()->default_value("10"))
+      ("query", "query to match items against", 
+       cxxopts::value<std::string>()->default_value(""))
       ("help", "display this help and exit")
       ;
 
-  po::variables_map opts;
-  po::store(po::parse_command_line(argc, argv, opts_desc), opts);
-  po::notify(opts);
+  const auto opts = options.parse(argc, argv);
 
   if (opts.count("help")) {
-    std::cout << opts_desc << std::endl;
+    std::cout << options.help() << std::endl;
     return 0;
   }
 

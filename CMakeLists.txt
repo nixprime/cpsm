@@ -17,10 +17,6 @@ set(CMAKE_MACOSX_RPATH 1)
 
 find_package(Threads REQUIRED)
 
-set(Boost_USE_MULTITHREADED ON)
-find_package(Boost REQUIRED COMPONENTS program_options)
-include_directories(${Boost_INCLUDE_DIRS})
-
 if(PY3)
     set(Python_ADDITIONAL_VERSIONS 3.8 3.7 3.6 3.5 3.4 3.3)
     find_package(PythonInterp 3 REQUIRED)
@@ -54,7 +50,7 @@ endif()
 install(TARGETS cpsm_py DESTINATION ${PROJECT_SOURCE_DIR}/autoload)
 
 add_executable(cpsm_cli src/cpsm_cli_main.cc)
-target_link_libraries(cpsm_cli cpsm_core ${Boost_PROGRAM_OPTIONS_LIBRARIES})
+target_link_libraries(cpsm_cli cpsm_core ${CMAKE_THREAD_LIBS_INIT})
 install(TARGETS cpsm_cli DESTINATION ${PROJECT_SOURCE_DIR}/bin)
 
 enable_testing()

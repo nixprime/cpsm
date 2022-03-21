@@ -23,9 +23,6 @@
 #include <string>
 #include <utility>
 
-#include <boost/range/adaptor/reversed.hpp>
-#include <boost/utility/string_ref.hpp>
-
 #include "api.h"
 #include "ctrlp_util.h"
 #include "par_util.h"
