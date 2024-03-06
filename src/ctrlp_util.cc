@@ -111,6 +111,8 @@ void get_highlight_regexes(boost::string_ref const mode,
     for (char const c : line_prefix) {
       write_char(c);
     }
+    // support highlight for CtrlP with devicons
+    regex += R"(\%\(\.\+\s\+\)\?)";
     std::size_t i = 0;
     for (; i < group.first; i++) {
       write_char(item[i]);
