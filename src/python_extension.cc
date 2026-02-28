@@ -23,9 +23,6 @@
 #include <string>
 #include <utility>
 
-#include <boost/range/adaptor/reversed.hpp>
-#include <boost/utility/string_ref.hpp>
-
 #include "api.h"
 #include "ctrlp_util.h"
 #include "par_util.h"
@@ -74,8 +71,8 @@ struct PyObjItem {
   explicit PyObjItem(InnerItem inner, Obj obj)
       : inner(std::move(inner)), obj(std::move(obj)) {}
 
-  boost::string_ref match_key() const { return inner.match_key(); }
-  boost::string_ref sort_key() const { return inner.sort_key(); }
+  string_view match_key() const { return inner.match_key(); }
+  string_view sort_key() const { return inner.sort_key(); }
 };
 
 // Iterators do not necessarily hold a reference on iterated values, so we must
@@ -114,7 +111,7 @@ class PyIterCtrlPMatchSource {
       }
       items.emplace_back(
           cpsm::CtrlPItem<cpsm::StringRefItem, MatchMode>(
-              (cpsm::StringRefItem(boost::string_ref(item_data, item_size)))),
+              (cpsm::StringRefItem(string_view(item_data, item_size)))),
           std::move(item_obj));
       return true;
     };
@@ -170,7 +167,7 @@ class PyListCtrlPMatchSource {
       }
       items.emplace_back(
           cpsm::CtrlPItem<cpsm::StringRefItem, MatchMode>(
-              (cpsm::StringRefItem(boost::string_ref(item_data, item_size)))),
+              (cpsm::StringRefItem(string_view(item_data, item_size)))),
           item_obj);
       return true;
     };
@@ -194,10 +191,10 @@ class PyListCtrlPMatchSource {
   bool done_ = false;
 };
 
-// `dst` must be a functor compatible with signature `void(boost::string_ref
-// item, boost::string_ref match_key, PyObject* obj, cpsm::MatchInfo* info)`.
+// `dst` must be a functor compatible with signature `void(string_view
+// item, string_view match_key, PyObject* obj, cpsm::MatchInfo* info)`.
 template <typename Sink>
-void for_each_pyctrlp_match(boost::string_ref const query,
+void for_each_pyctrlp_match(string_view const query,
                             cpsm::Options const& opts,
                             cpsm::CtrlPMatchMode const match_mode,
                             PyObject* const items_iter, Sink&& dst) {
@@ -310,21 +307,21 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
 
   try {
     std::string query(query_data, query_size);
-    boost::string_ref query_inverting_delimiter(query_inverting_delimiter_data,
+    string_view query_inverting_delimiter(query_inverting_delimiter_data,
                                                 query_inverting_delimiter_size);
     if (!query_inverting_delimiter.empty()) {
       if (query_inverting_delimiter.size() > 1) {
         throw cpsm::Error(
             "query inverting delimiter must be a single character");
       }
-      query = cpsm::str_join(boost::adaptors::reverse(cpsm::str_split(
-                                 query, query_inverting_delimiter[0])),
-                             "");
+      auto split_words = cpsm::str_split(query, query_inverting_delimiter[0]);
+      std::reverse(std::begin(split_words), std::end(split_words));
+      query = cpsm::str_join(split_words, "");
     }
 
     auto const mopts =
         cpsm::Options()
-            .set_crfile(boost::string_ref(crfile_data, crfile_size))
+            .set_crfile(string_view(crfile_data, crfile_size))
             .set_limit((limit_int >= 0) ? std::size_t(limit_int) : 0)
             .set_match_crfile(match_crfile)
             .set_nr_threads(
@@ -334,7 +331,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
             .set_path(is_path)
             .set_unicode(unicode)
             .set_want_match_info(true);
-    boost::string_ref const highlight_mode(highlight_mode_data,
+    string_view const highlight_mode(highlight_mode_data,
                                            highlight_mode_size);
 
     PyObjPtr output_tuple(PyTuple_New(2));
@@ -348,9 +345,9 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
     std::vector<std::string> highlight_regexes;
     for_each_pyctrlp_match(
         query, mopts,
-        cpsm::parse_ctrlp_match_mode(boost::string_ref(mmode_data, mmode_size)),
+        cpsm::parse_ctrlp_match_mode(string_view(mmode_data, mmode_size)),
         items_obj,
-        [&](boost::string_ref const item, boost::string_ref const match_key,
+        [&](string_view const item, string_view const match_key,
             PyObject* const obj, cpsm::MatchInfo* const info) {
           if (PyList_Append(matches_list.get(), obj) < 0) {
             throw cpsm::Error("match appending failed");
@@ -363,7 +360,7 @@ static PyObject* cpsm_ctrlp_match(PyObject* self, PyObject* args,
           }
           cpsm::get_highlight_regexes(
               highlight_mode, item, match_positions, highlight_regexes,
-              boost::string_ref(regex_line_prefix_data,
+              string_view(regex_line_prefix_data,
                                 regex_line_prefix_size));
         });
     if (PyTuple_SetItem(output_tuple.get(), 0, matches_list.release())) {

@@ -47,8 +47,6 @@ Requirements
 
 - A C++ compiler supporting C++11.
 
-- Boost (Ubuntu: package `libboost-all-dev`).
-
 - CMake (Ubuntu: package `cmake`).
 
 - Python headers (Ubuntu: package `python-dev`).

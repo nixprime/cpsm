@@ -57,7 +57,7 @@ std::vector<std::pair<std::size_t, std::size_t>> group_positions_basic(
 }
 
 std::vector<std::pair<std::size_t, std::size_t>> group_positions(
-    boost::string_ref const mode, std::vector<std::size_t> const& positions) {
+    string_view const mode, std::vector<std::size_t> const& positions) {
   if (mode.empty() || mode == "none") {
     return std::vector<std::pair<std::size_t, std::size_t>>();
   } else if (mode == "basic") {
@@ -70,7 +70,7 @@ std::vector<std::pair<std::size_t, std::size_t>> group_positions(
 
 }  // anonymous namespace
 
-CtrlPMatchMode parse_ctrlp_match_mode(boost::string_ref const mmode) {
+CtrlPMatchMode parse_ctrlp_match_mode(string_view const mmode) {
   if (mmode.empty() || mmode == "full-line") {
     return CtrlPMatchMode::FULL_LINE;
   } else if (mmode == "filename-only") {
@@ -83,11 +83,11 @@ CtrlPMatchMode parse_ctrlp_match_mode(boost::string_ref const mmode) {
   throw Error("unknown match mode ", mmode);
 }
 
-void get_highlight_regexes(boost::string_ref const mode,
-                           boost::string_ref const item,
+void get_highlight_regexes(string_view const mode,
+                           string_view const item,
                            std::vector<std::size_t> const& positions,
                            std::vector<std::string>& regexes,
-                           boost::string_ref const line_prefix) {
+                           string_view const line_prefix) {
   for (auto const group : group_positions(mode, positions)) {
     // Each match group's regex has the same structure:
     // - "\V": very nomagic (only "\" needs to be escaped)

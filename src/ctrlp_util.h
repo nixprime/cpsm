@@ -24,7 +24,14 @@
 #include <utility>
 #include <vector>
 
-#include <boost/utility/string_ref.hpp>
+#if __has_include("string_view")
+#include <string_view>
+using std::string_view;
+#else
+#include <experimental/string_view>
+using std::experimental::string_view;
+#endif
+
 
 #include "path_util.h"
 #include "str_util.h"
@@ -46,18 +53,18 @@ enum class CtrlPMatchMode {
 };
 
 // Parses a CtrlP match mode.
-CtrlPMatchMode parse_ctrlp_match_mode(boost::string_ref mmode);
+CtrlPMatchMode parse_ctrlp_match_mode(string_view mmode);
 
 // Functor types implementing transformations for each CtrlP match mode.
 
 struct FullLineMatch {
-  boost::string_ref operator()(boost::string_ref const item) const {
+  string_view operator()(string_view const item) const {
     return item;
   }
 };
 
 struct FilenameOnlyMatch {
-  boost::string_ref operator()(boost::string_ref const item) const {
+  string_view operator()(string_view const item) const {
     return ref_str_iters(
         path_basename<PlatformPathTraits>(item.cbegin(), item.cend()),
         item.cend());
@@ -65,14 +72,14 @@ struct FilenameOnlyMatch {
 };
 
 struct FirstNonTabMatch {
-  boost::string_ref operator()(boost::string_ref const item) const {
+  string_view operator()(string_view const item) const {
     return ref_str_iters(item.cbegin(),
                          std::find(item.cbegin(), item.cend(), '\t'));
   }
 };
 
 struct UntilLastTabMatch {
-  boost::string_ref operator()(boost::string_ref const item) const {
+  string_view operator()(string_view const item) const {
     auto const item_rend = item.crend();
     auto const last_tab_rit = std::find(item.crbegin(), item_rend, '\t');
     return ref_str_iters(item.cbegin(), (last_tab_rit == item_rend)
@@ -90,16 +97,16 @@ struct CtrlPItem {
   CtrlPItem() {}
   explicit CtrlPItem(InnerItem inner) : inner(std::move(inner)) {}
 
-  boost::string_ref match_key() const { return MatchMode()(inner.match_key()); }
-  boost::string_ref sort_key() const { return inner.sort_key(); }
+  string_view match_key() const { return MatchMode()(inner.match_key()); }
+  string_view sort_key() const { return inner.sort_key(); }
 };
 
 // Appends a set of Vim regexes to highlight the bytes at `positions` in `item`
 // for the given highlight mode. `positions` must be sorted.
-void get_highlight_regexes(boost::string_ref mode, boost::string_ref item,
+void get_highlight_regexes(string_view mode, string_view item,
                            std::vector<std::size_t> const& positions,
                            std::vector<std::string>& regexes,
-                           boost::string_ref line_prefix);
+                           string_view line_prefix);
 
 }  // namespace cpsm
 

@@ -45,31 +45,31 @@ struct Matches {
   using size_type = typename Vec::size_type;
   Vec matches;
 
-  typename Vec::const_iterator find(boost::string_ref const item) const {
+  typename Vec::const_iterator find(string_view const item) const {
     return std::find(matches.cbegin(), matches.cend(), item);
   }
 
-  bool matched(boost::string_ref const item) const {
+  bool matched(string_view const item) const {
     return find(item) != matches.cend();
   }
 
-  void assert_matched(boost::string_ref const item) const {
+  void assert_matched(string_view const item) const {
     if (!matched(item)) {
       throw TestAssertionFailure("incorrectly failed to match '", item, "'");
     }
   }
 
-  void assert_not_matched(boost::string_ref const item) const {
+  void assert_not_matched(string_view const item) const {
     if (matched(item)) {
       throw TestAssertionFailure("incorrectly matched '", item, "'");
     }
   }
 
-  size_type match_index(boost::string_ref const item) const {
+  size_type match_index(string_view const item) const {
     return find(item) - matches.cbegin();
   }
 
-  void assert_match_index(boost::string_ref const item,
+  void assert_match_index(string_view const item,
                           size_type const expected_index) const {
     auto const index = match_index(item);
     if (index != expected_index) {
@@ -78,8 +78,8 @@ struct Matches {
     }
   }
 
-  void assert_better_match(boost::string_ref const better_item,
-                           boost::string_ref const worse_item) const {
+  void assert_better_match(string_view const better_item,
+                           string_view const worse_item) const {
     auto const better_index = match_index(better_item);
     auto const worse_index = match_index(worse_item);
     if (better_index >= worse_index) {
@@ -91,8 +91,8 @@ struct Matches {
   }
 };
 
-Matches match_and_log(std::initializer_list<boost::string_ref> items,
-                      boost::string_ref const query) {
+Matches match_and_log(std::initializer_list<string_view> items,
+                      string_view const query) {
   Matches m;
   for_each_match<StringRefItem>(
       query, Options().set_want_match_info(true),
